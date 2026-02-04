@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: sunspear-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./backend/data:/app/data
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+      - PORT=8080
+      - FRONTEND_URL=http://localhost:3000
+    restart: unless-stopped
+    networks:
+      - sunspear-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: sunspear-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - sunspear-net
+
+networks:
+  sunspear-net:
+    driver: bridge
+
+volumes:
+  backend-data:

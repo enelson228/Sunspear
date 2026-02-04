@@ -1,0 +1,30 @@
+# Environment files
+.env
+.env.local
+
+# Backend
+backend/data/database/*.db
+backend/data/database/*.db-shm
+backend/data/database/*.db-wal
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
