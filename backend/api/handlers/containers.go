@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"sunspear/services"
 
@@ -145,12 +146,12 @@ func (h *ContainerHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 func (h *ContainerHandler) CreateContainer(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Image        string            `json:"image"`
-		Name         string            `json:"name"`
-		Ports        map[string]string `json:"ports"`
-		Volumes      map[string]string `json:"volumes"`
-		Env          []string          `json:"env"`
-		RestartPolicy string           `json:"restartPolicy"`
+		Image         string            `json:"image"`
+		Name          string            `json:"name"`
+		Ports         map[string]string `json:"ports"`
+		Volumes       map[string]string `json:"volumes"`
+		Env           []string          `json:"env"`
+		RestartPolicy string            `json:"restartPolicy"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -167,9 +168,9 @@ func (h *ContainerHandler) CreateContainer(w http.ResponseWriter, r *http.Reques
 
 	// Configure restart policy
 	if req.RestartPolicy != "" {
-		hostConfig.RestartPolicy = container.RestartPolicy{
-			Name: container.RestartPolicyMode(req.RestartPolicy),
-		}
+		policy := container.RestartPolicy{}
+		setRestartPolicyName(&policy, req.RestartPolicy)
+		hostConfig.RestartPolicy = policy
 	}
 
 	response, err := h.dockerService.CreateContainer(r.Context(), config, hostConfig, req.Name)
@@ -179,6 +180,18 @@ func (h *ContainerHandler) CreateContainer(w http.ResponseWriter, r *http.Reques
 	}
 
 	respondJSON(w, http.StatusCreated, response)
+}
+
+func setRestartPolicyName(policy *container.RestartPolicy, name string) {
+	if policy == nil {
+		return
+	}
+
+	policyValue := reflect.ValueOf(policy).Elem()
+	nameField := policyValue.FieldByName("Name")
+	if nameField.IsValid() && nameField.CanSet() && nameField.Kind() == reflect.String {
+		nameField.SetString(name)
+	}
 }
 
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {
