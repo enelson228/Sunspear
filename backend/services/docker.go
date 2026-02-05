@@ -66,7 +66,7 @@ func (s *DockerService) GetContainerLogs(ctx context.Context, containerID string
 	})
 }
 
-func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (container.StatsResponseReader, error) {
+func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (types.ContainerStats, error) {
 	return s.client.ContainerStats(ctx, containerID, false)
 }
 
