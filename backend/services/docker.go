@@ -44,13 +44,13 @@ func (s *DockerService) StartContainer(ctx context.Context, containerID string) 
 }
 
 func (s *DockerService) StopContainer(ctx context.Context, containerID string, timeout int) error {
-	stopTimeout := uint(timeout)
-	return s.client.ContainerStop(ctx, containerID, &stopTimeout)
+	stopTimeout := timeout
+	return s.client.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &stopTimeout})
 }
 
 func (s *DockerService) RestartContainer(ctx context.Context, containerID string, timeout int) error {
-	stopTimeout := uint(timeout)
-	return s.client.ContainerRestart(ctx, containerID, &stopTimeout)
+	stopTimeout := timeout
+	return s.client.ContainerRestart(ctx, containerID, container.StopOptions{Timeout: &stopTimeout})
 }
 
 func (s *DockerService) RemoveContainer(ctx context.Context, containerID string, force bool) error {
@@ -66,7 +66,7 @@ func (s *DockerService) GetContainerLogs(ctx context.Context, containerID string
 	})
 }
 
-func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (types.ContainerStatsResponseReader, error) {
+func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (types.ContainerStats, error) {
 	return s.client.ContainerStats(ctx, containerID, false)
 }
 
