@@ -1,12 +1,467 @@
 <template>
-  <div class="page">
-    <h1>CONTAINERS</h1>
-    <p class="text-secondary">Container management interface coming soon...</p>
+  <div class="containers-page">
+    <nav class="navbar glass">
+      <div class="container">
+        <div class="navbar-content">
+          <div class="logo-section">
+            <div class="logo-icon">◆</div>
+            <span class="logo-text">SUNSPEAR</span>
+          </div>
+          <div class="nav-links">
+            <router-link to="/" class="nav-link">Dashboard</router-link>
+            <router-link to="/containers" class="nav-link">Containers</router-link>
+            <router-link to="/images" class="nav-link">Images</router-link>
+            <router-link to="/apps" class="nav-link">App Store</router-link>
+            <router-link to="/system" class="nav-link">System</router-link>
+          </div>
+          <Button variant="secondary" @click="handleLogout">LOGOUT</Button>
+        </div>
+      </div>
+    </nav>
+
+    <main class="containers-main">
+      <div class="container">
+        <div class="page-header">
+          <div>
+            <h1>CONTAINER MANAGEMENT</h1>
+            <p class="subtitle">Manage and monitor Docker containers</p>
+          </div>
+          <div class="header-actions">
+            <Button variant="primary" @click="fetchContainers" :loading="loading">
+              {{ loading ? 'REFRESHING...' : 'REFRESH' }}
+            </Button>
+            <Button variant="primary" @click="showCreateModal = true">
+              + CREATE CONTAINER
+            </Button>
+          </div>
+        </div>
+
+        <div class="filters-section">
+          <div class="filter-group">
+            <label class="label">FILTER</label>
+            <div class="filter-buttons">
+              <Button
+                :variant="showAll ? 'primary' : 'secondary'"
+                @click="showAll = true; fetchContainers(true)"
+              >
+                ALL ({{ containers.length }})
+              </Button>
+              <Button
+                :variant="!showAll ? 'primary' : 'secondary'"
+                @click="showAll = false; fetchContainers(false)"
+              >
+                RUNNING ({{ runningCount }})
+              </Button>
+            </div>
+          </div>
+
+          <div class="search-group">
+            <Input
+              v-model="searchQuery"
+              placeholder="Search containers..."
+              type="text"
+            />
+          </div>
+        </div>
+
+        <div v-if="loading && containers.length === 0" class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading containers...</p>
+        </div>
+
+        <div v-else-if="error" class="error-state">
+          <p class="error-message">{{ error }}</p>
+          <Button variant="primary" @click="fetchContainers">RETRY</Button>
+        </div>
+
+        <div v-else-if="filteredContainers.length === 0" class="empty-state">
+          <h3>NO CONTAINERS FOUND</h3>
+          <p class="text-secondary">
+            {{ searchQuery ? 'No containers match your search.' : 'No containers available.' }}
+          </p>
+          <Button variant="primary" @click="showCreateModal = true">
+            CREATE YOUR FIRST CONTAINER
+          </Button>
+        </div>
+
+        <div v-else class="containers-grid">
+          <ContainerCard
+            v-for="container in filteredContainers"
+            :key="container.Id"
+            :container="container"
+            :loading="actionLoading === container.Id"
+            @start="handleStart"
+            @stop="handleStop"
+            @restart="handleRestart"
+            @view="handleView"
+            @remove="handleRemove"
+          />
+        </div>
+      </div>
+    </main>
+
+    <!-- Remove Confirmation Modal -->
+    <Modal v-model="showRemoveModal" title="CONFIRM REMOVAL">
+      <p>Are you sure you want to remove this container?</p>
+      <p class="text-secondary mt-sm">This action cannot be undone.</p>
+
+      <template #footer>
+        <Button variant="secondary" @click="showRemoveModal = false">
+          CANCEL
+        </Button>
+        <Button variant="danger" @click="confirmRemove" :loading="actionLoading">
+          {{ actionLoading ? 'REMOVING...' : 'REMOVE' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Create Container Modal (placeholder) -->
+    <Modal v-model="showCreateModal" title="CREATE CONTAINER">
+      <p class="text-secondary">Container creation form coming soon...</p>
+
+      <template #footer>
+        <Button variant="secondary" @click="showCreateModal = false">
+          CLOSE
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Toast Notification -->
+    <div v-if="toast.show" class="toast" :class="`toast-${toast.type}`">
+      {{ toast.message }}
+    </div>
   </div>
 </template>
 
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useContainersStore } from '@/stores/containers'
+import ContainerCard from '@/components/containers/ContainerCard.vue'
+import Button from '@/components/ui/Button.vue'
+import Input from '@/components/ui/Input.vue'
+import Modal from '@/components/ui/Modal.vue'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const containersStore = useContainersStore()
+
+const showAll = ref(true)
+const searchQuery = ref('')
+const actionLoading = ref(null)
+const showRemoveModal = ref(false)
+const showCreateModal = ref(false)
+const containerToRemove = ref(null)
+const toast = ref({ show: false, message: '', type: 'success' })
+
+const containers = computed(() => containersStore.containers)
+const loading = computed(() => containersStore.loading)
+const error = computed(() => containersStore.error)
+
+const runningCount = computed(() => {
+  return containers.value.filter(c => c.State === 'running').length
+})
+
+const filteredContainers = computed(() => {
+  let filtered = containers.value
+
+  if (!showAll.value) {
+    filtered = filtered.filter(c => c.State === 'running')
+  }
+
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(c => {
+      const name = c.Names[0]?.toLowerCase() || ''
+      const id = c.Id.toLowerCase()
+      const image = c.Image.toLowerCase()
+      return name.includes(query) || id.includes(query) || image.includes(query)
+    })
+  }
+
+  return filtered
+})
+
+function handleLogout() {
+  authStore.logout()
+  router.push('/login')
+}
+
+async function fetchContainers(all = true) {
+  try {
+    await containersStore.fetchContainers(all)
+  } catch (err) {
+    showToast('Failed to fetch containers', 'error')
+  }
+}
+
+async function handleStart(id) {
+  actionLoading.value = id
+  try {
+    await containersStore.startContainer(id)
+    showToast('Container started successfully', 'success')
+  } catch (err) {
+    showToast('Failed to start container', 'error')
+  } finally {
+    actionLoading.value = null
+  }
+}
+
+async function handleStop(id) {
+  actionLoading.value = id
+  try {
+    await containersStore.stopContainer(id)
+    showToast('Container stopped successfully', 'success')
+  } catch (err) {
+    showToast('Failed to stop container', 'error')
+  } finally {
+    actionLoading.value = null
+  }
+}
+
+async function handleRestart(id) {
+  actionLoading.value = id
+  try {
+    await containersStore.restartContainer(id)
+    showToast('Container restarted successfully', 'success')
+  } catch (err) {
+    showToast('Failed to restart container', 'error')
+  } finally {
+    actionLoading.value = null
+  }
+}
+
+function handleView(id) {
+  router.push(`/containers/${id}`)
+}
+
+function handleRemove(id) {
+  containerToRemove.value = id
+  showRemoveModal.value = true
+}
+
+async function confirmRemove() {
+  actionLoading.value = containerToRemove.value
+  try {
+    await containersStore.removeContainer(containerToRemove.value, false)
+    showToast('Container removed successfully', 'success')
+    showRemoveModal.value = false
+  } catch (err) {
+    showToast('Failed to remove container. Try force removal.', 'error')
+  } finally {
+    actionLoading.value = null
+    containerToRemove.value = null
+  }
+}
+
+function showToast(message, type = 'success') {
+  toast.value = { show: true, message, type }
+  setTimeout(() => {
+    toast.value.show = false
+  }, 3000)
+}
+
+onMounted(() => {
+  fetchContainers(true)
+})
+</script>
+
 <style scoped>
-.page {
-  padding: var(--space-2xl);
+.containers-page {
+  min-height: 100vh;
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 64px;
+  border-bottom: 1px solid rgba(74, 85, 104, 0.3);
+}
+
+.navbar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.logo-icon {
+  color: var(--reach-amber);
+  font-size: 1.5rem;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--reach-amber);
+}
+
+.nav-links {
+  display: flex;
+  gap: var(--space-xl);
+}
+
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  transition: color var(--transition-base);
+  position: relative;
+}
+
+.nav-link:hover {
+  color: var(--reach-amber);
+}
+
+.nav-link.router-link-active {
+  color: var(--reach-amber);
+}
+
+.nav-link.router-link-active::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--reach-amber);
+}
+
+.containers-main {
+  padding-top: 100px;
+  padding-bottom: var(--space-3xl);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-2xl);
+}
+
+.page-header h1 {
+  margin-bottom: var(--space-sm);
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.filters-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+  padding: var(--space-lg);
+  background-color: var(--reach-steel);
+  border: 1px solid rgba(74, 85, 104, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.filter-buttons {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.search-group {
+  flex: 1;
+  max-width: 400px;
+}
+
+.containers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: var(--space-lg);
+}
+
+.loading-state,
+.error-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3xl);
+  text-align: center;
+  gap: var(--space-lg);
+}
+
+.error-message {
+  color: var(--reach-orange);
+  font-family: var(--font-mono);
+}
+
+.toast {
+  position: fixed;
+  bottom: var(--space-xl);
+  right: var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--reach-steel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-toast);
+  animation: slideIn 0.3s ease-out;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.toast-success {
+  border: 1px solid var(--reach-cyan);
+  color: var(--reach-cyan);
+}
+
+.toast-error {
+  border: 1px solid var(--reach-orange);
+  color: var(--reach-orange);
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .filters-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-group {
+    max-width: none;
+  }
+
+  .containers-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
