@@ -99,29 +99,37 @@ func (s *MonitoringService) updateMetrics() {
 	cpuPercent, _ := cpu.Percent(time.Second, false)
 	cpuPerCore, _ := cpu.Percent(time.Second, true)
 	cpuCount, _ := cpu.Counts(true)
+	cpuUsage := 0.0
+	if len(cpuPercent) > 0 {
+		cpuUsage = cpuPercent[0]
+	}
 
 	s.metrics.CPU = CPUMetrics{
-		UsagePercent: cpuPercent[0],
+		UsagePercent: cpuUsage,
 		Cores:        cpuCount,
 		PerCore:      cpuPerCore,
 	}
 
 	// Memory metrics
 	memInfo, _ := mem.VirtualMemory()
-	s.metrics.Memory = MemoryMetrics{
-		Total:       memInfo.Total,
-		Used:        memInfo.Used,
-		Available:   memInfo.Available,
-		UsedPercent: memInfo.UsedPercent,
+	if memInfo != nil {
+		s.metrics.Memory = MemoryMetrics{
+			Total:       memInfo.Total,
+			Used:        memInfo.Used,
+			Available:   memInfo.Available,
+			UsedPercent: memInfo.UsedPercent,
+		}
 	}
 
 	// Disk metrics (root partition)
 	diskInfo, _ := disk.Usage("/")
-	s.metrics.Disk = DiskMetrics{
-		Total:       diskInfo.Total,
-		Used:        diskInfo.Used,
-		Free:        diskInfo.Free,
-		UsedPercent: diskInfo.UsedPercent,
+	if diskInfo != nil {
+		s.metrics.Disk = DiskMetrics{
+			Total:       diskInfo.Total,
+			Used:        diskInfo.Used,
+			Free:        diskInfo.Free,
+			UsedPercent: diskInfo.UsedPercent,
+		}
 	}
 
 	// Network metrics
