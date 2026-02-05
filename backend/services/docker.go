@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 )
 
@@ -32,7 +32,7 @@ func (s *DockerService) Close() error {
 // Container operations
 
 func (s *DockerService) ListContainers(ctx context.Context, all bool) ([]types.Container, error) {
-	return s.client.ContainerList(ctx, container.ListOptions{All: all})
+	return s.client.ContainerList(ctx, types.ContainerListOptions{All: all})
 }
 
 func (s *DockerService) GetContainer(ctx context.Context, containerID string) (types.ContainerJSON, error) {
@@ -40,25 +40,25 @@ func (s *DockerService) GetContainer(ctx context.Context, containerID string) (t
 }
 
 func (s *DockerService) StartContainer(ctx context.Context, containerID string) error {
-	return s.client.ContainerStart(ctx, containerID, container.StartOptions{})
+	return s.client.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
 }
 
 func (s *DockerService) StopContainer(ctx context.Context, containerID string, timeout int) error {
-	stopTimeout := timeout
-	return s.client.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &stopTimeout})
+	stopTimeout := uint(timeout)
+	return s.client.ContainerStop(ctx, containerID, &stopTimeout)
 }
 
 func (s *DockerService) RestartContainer(ctx context.Context, containerID string, timeout int) error {
-	stopTimeout := timeout
-	return s.client.ContainerRestart(ctx, containerID, container.StopOptions{Timeout: &stopTimeout})
+	stopTimeout := uint(timeout)
+	return s.client.ContainerRestart(ctx, containerID, &stopTimeout)
 }
 
 func (s *DockerService) RemoveContainer(ctx context.Context, containerID string, force bool) error {
-	return s.client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: force})
+	return s.client.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: force})
 }
 
 func (s *DockerService) GetContainerLogs(ctx context.Context, containerID string, tail string) (io.ReadCloser, error) {
-	return s.client.ContainerLogs(ctx, containerID, container.LogsOptions{
+	return s.client.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Tail:       tail,
@@ -66,7 +66,7 @@ func (s *DockerService) GetContainerLogs(ctx context.Context, containerID string
 	})
 }
 
-func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (container.StatsResponseReader, error) {
+func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (types.ContainerStatsResponseReader, error) {
 	return s.client.ContainerStats(ctx, containerID, false)
 }
 
@@ -76,20 +76,20 @@ func (s *DockerService) CreateContainer(ctx context.Context, config *container.C
 
 // Image operations
 
-func (s *DockerService) ListImages(ctx context.Context) ([]image.Summary, error) {
-	return s.client.ImageList(ctx, image.ListOptions{All: false})
+func (s *DockerService) ListImages(ctx context.Context) ([]types.ImageSummary, error) {
+	return s.client.ImageList(ctx, types.ImageListOptions{All: false})
 }
 
 func (s *DockerService) PullImage(ctx context.Context, imageName string) (io.ReadCloser, error) {
-	return s.client.ImagePull(ctx, imageName, image.PullOptions{})
+	return s.client.ImagePull(ctx, imageName, types.ImagePullOptions{})
 }
 
-func (s *DockerService) RemoveImage(ctx context.Context, imageID string, force bool) ([]image.DeleteResponse, error) {
-	return s.client.ImageRemove(ctx, imageID, image.RemoveOptions{Force: force})
+func (s *DockerService) RemoveImage(ctx context.Context, imageID string, force bool) ([]types.ImageDeleteResponseItem, error) {
+	return s.client.ImageRemove(ctx, imageID, types.ImageRemoveOptions{Force: force})
 }
 
-func (s *DockerService) SearchImages(ctx context.Context, term string) ([]image.SearchResult, error) {
-	return s.client.ImageSearch(ctx, term, image.SearchOptions{Limit: 25})
+func (s *DockerService) SearchImages(ctx context.Context, term string) ([]registry.SearchResult, error) {
+	return s.client.ImageSearch(ctx, term, types.ImageSearchOptions{Limit: 25})
 }
 
 // System operations
