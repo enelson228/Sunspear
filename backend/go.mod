@@ -3,7 +3,7 @@ module sunspear
 go 1.21
 
 require (
-	github.com/docker/docker v24.0.7+incompatible
+	github.com/docker/docker v23.0.11+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
