@@ -1,6 +1,6 @@
 module sunspear
 
-go 1.21
+go 1.25
 
 require (
 	github.com/docker/docker v23.0.11+incompatible

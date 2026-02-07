@@ -3,8 +3,9 @@
 A CasaOS-styled Docker management dashboard with Halo Reach military HUD aesthetics. Self-host and manage Docker containers, browse an app marketplace, and monitor system metrics through an elegant interface.
 
 ![Sunspear](https://img.shields.io/badge/status-alpha-orange)
-![Go](https://img.shields.io/badge/go-1.21-blue)
-![Vue](https://img.shields.io/badge/vue-3.4-green)
+![Go](https://img.shields.io/badge/go-1.25-blue)
+![Vue](https://img.shields.io/badge/vue-3.5-green)
+![Vite](https://img.shields.io/badge/vite-7-blueviolet)
 
 ## Features
 
@@ -18,7 +19,7 @@ A CasaOS-styled Docker management dashboard with Halo Reach military HUD aesthet
 ## Tech Stack
 
 **Backend:**
-- Go 1.21+
+- Go 1.25+
 - Docker SDK
 - Gorilla Mux (routing)
 - SQLite (database)
@@ -26,7 +27,7 @@ A CasaOS-styled Docker management dashboard with Halo Reach military HUD aesthet
 
 **Frontend:**
 - Vue 3 with Composition API
-- Vite (build tool)
+- Vite 7 (build tool)
 - Pinia (state management)
 - Vue Router
 - Axios
@@ -35,7 +36,8 @@ A CasaOS-styled Docker management dashboard with Halo Reach military HUD aesthet
 
 - Docker and Docker Compose installed
 - Fresh VPS or local machine with Docker access
-- Port 3000 and 8080 available
+- Public domain pointing to your server (for HTTPS)
+- Ports 80 and 443 available
 
 ## Quick Start
 
@@ -52,24 +54,20 @@ cd Sunspear
 cp .env.example .env
 ```
 
-Edit `.env` and set a secure JWT secret:
+Edit `.env` and set required values:
 
 ```env
+PUBLIC_DOMAIN=your-domain.com
 JWT_SECRET=your-very-secure-random-string-here
+ADMIN_PASSWORD_HASH=your-bcrypt-hash
 ```
+
+If you want to change the domain, update `PUBLIC_DOMAIN` and `Caddyfile`.
 
 ### 3. Build and start
 
 ```bash
-make build
-make up
-```
-
-Or using Docker Compose directly:
-
-```bash
-docker-compose build
-docker-compose up -d
+docker compose up -d --build
 ```
 
 ### 4. Access the dashboard
@@ -77,10 +75,19 @@ docker-compose up -d
 Open your browser and navigate to:
 
 ```
-http://localhost:3000
+https://your-domain.com
 ```
 
 On first run, you'll be prompted to create an admin account.
+
+## Reverse Proxy (Caddy)
+
+The default setup uses Caddy as a reverse proxy with automatic HTTPS:
+
+- `/` -> frontend
+- `/api/*` -> backend
+
+If you change domains, update `PUBLIC_DOMAIN` in `.env` and `Caddyfile`.
 
 ## Development
 
@@ -189,7 +196,7 @@ Sunspear uses the **Halo Reach military HUD aesthetic** adapted from the Infinit
 - Docker socket access limited to backend container
 - No default credentials
 
-**Important:** Change the `JWT_SECRET` in production and use a strong admin password.
+**Important:** Set `JWT_SECRET` and `ADMIN_PASSWORD_HASH` in production.
 
 ## Roadmap
 

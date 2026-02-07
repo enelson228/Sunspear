@@ -23,6 +23,9 @@ func main() {
 
 	// Initialize configuration
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
 
 	// Initialize database
 	db, err := config.InitDB()

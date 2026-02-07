@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
 
 # Runtime stage
-FROM nginx:alpine
+FROM nginx:1.28-alpine
 
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html

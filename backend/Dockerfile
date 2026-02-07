@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o sunspear .
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.23
 
 RUN apk --no-cache add ca-certificates sqlite-libs wget
 
