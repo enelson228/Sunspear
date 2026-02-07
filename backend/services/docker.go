@@ -17,7 +17,9 @@ type DockerService struct {
 }
 
 func NewDockerService() (*DockerService, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	// Avoid honoring DOCKER_API_VERSION from env, which can pin an old API version
+	// and fail against newer Docker daemons.
+	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
