@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 )
 
@@ -156,4 +157,67 @@ func (s *DockerService) GetEvents(ctx context.Context) (<-chan events.Message, <
 			filters.Arg("type", "container"),
 		),
 	})
+}
+
+// Volume operations
+
+func (s *DockerService) ListVolumes(ctx context.Context) ([]*volume.Volume, error) {
+	resp, err := s.client.VolumeList(ctx, volume.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Volumes, nil
+}
+
+func (s *DockerService) InspectVolume(ctx context.Context, name string) (volume.Volume, error) {
+	return s.client.VolumeInspect(ctx, name)
+}
+
+func (s *DockerService) CreateVolume(ctx context.Context, name string, driver string, labels map[string]string) (volume.Volume, error) {
+	return s.client.VolumeCreate(ctx, volume.CreateOptions{
+		Name:   name,
+		Driver: driver,
+		Labels: labels,
+	})
+}
+
+func (s *DockerService) RemoveVolume(ctx context.Context, name string, force bool) error {
+	return s.client.VolumeRemove(ctx, name, force)
+}
+
+func (s *DockerService) PruneVolumes(ctx context.Context) (types.VolumesPruneReport, error) {
+	return s.client.VolumesPrune(ctx, filters.NewArgs())
+}
+
+// Network operations
+
+func (s *DockerService) ListNetworks(ctx context.Context) ([]types.NetworkResource, error) {
+	return s.client.NetworkList(ctx, types.NetworkListOptions{})
+}
+
+func (s *DockerService) InspectNetwork(ctx context.Context, id string) (types.NetworkResource, error) {
+	return s.client.NetworkInspect(ctx, id, types.NetworkInspectOptions{})
+}
+
+func (s *DockerService) CreateNetwork(ctx context.Context, name string, driver string, internal bool) (types.NetworkCreateResponse, error) {
+	return s.client.NetworkCreate(ctx, name, types.NetworkCreate{
+		Driver:   driver,
+		Internal: internal,
+	})
+}
+
+func (s *DockerService) RemoveNetwork(ctx context.Context, id string) error {
+	return s.client.NetworkRemove(ctx, id)
+}
+
+func (s *DockerService) ConnectNetwork(ctx context.Context, networkID string, containerID string) error {
+	return s.client.NetworkConnect(ctx, networkID, containerID, nil)
+}
+
+func (s *DockerService) DisconnectNetwork(ctx context.Context, networkID string, containerID string) error {
+	return s.client.NetworkDisconnect(ctx, networkID, containerID, false)
+}
+
+func (s *DockerService) PruneNetworks(ctx context.Context) (types.NetworksPruneReport, error) {
+	return s.client.NetworksPrune(ctx, filters.NewArgs())
 }

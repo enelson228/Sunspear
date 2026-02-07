@@ -33,6 +33,24 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/volumes',
+    name: 'Volumes',
+    component: () => import('@/views/Volumes.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/networks',
+    name: 'Networks',
+    component: () => import('@/views/Networks.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/compose',
+    name: 'Compose',
+    component: () => import('@/views/Compose.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/apps',
     name: 'AppStore',
     component: () => import('@/views/AppStore.vue'),

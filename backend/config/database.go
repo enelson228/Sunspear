@@ -58,6 +58,19 @@ func createTables(db *sql.DB) error {
 		value TEXT NOT NULL,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS compose_projects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		description TEXT DEFAULT '',
+		yaml_content TEXT NOT NULL,
+		status TEXT DEFAULT 'stopped',
+		container_ids TEXT DEFAULT '[]',
+		network_ids TEXT DEFAULT '[]',
+		volume_names TEXT DEFAULT '[]',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 	`
 
 	_, err := db.Exec(schema)

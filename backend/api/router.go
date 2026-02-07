@@ -18,6 +18,7 @@ func NewRouter(
 	dockerService *services.DockerService,
 	monitorService *services.MonitoringService,
 	marketplaceService *services.MarketplaceService,
+	composeService *services.ComposeService,
 ) http.Handler {
 	r := mux.NewRouter()
 
@@ -28,6 +29,9 @@ func NewRouter(
 	appHandler := handlers.NewAppHandler(marketplaceService, dockerService)
 	authHandler := handlers.NewAuthHandler(cfg, db)
 	wsHandler := handlers.NewWSHandler(dockerService, monitorService)
+	volumeHandler := handlers.NewVolumeHandler(dockerService)
+	networkHandler := handlers.NewNetworkHandler(dockerService)
+	composeHandler := handlers.NewComposeHandler(composeService)
 
 	// Public routes
 	r.HandleFunc("/health", healthCheck).Methods("GET")
@@ -82,6 +86,34 @@ func NewRouter(
 	api.HandleFunc("/ws/events", wsHandler.StreamEvents).Methods("GET")
 	api.HandleFunc("/ws/logs/{id}", wsHandler.StreamLogs).Methods("GET")
 	api.HandleFunc("/ws/metrics", wsHandler.StreamMetrics).Methods("GET")
+
+	// Volume routes (static before {name})
+	api.HandleFunc("/volumes", volumeHandler.ListVolumes).Methods("GET")
+	api.HandleFunc("/volumes", volumeHandler.CreateVolume).Methods("POST")
+	api.HandleFunc("/volumes/prune", volumeHandler.PruneVolumes).Methods("POST")
+	api.HandleFunc("/volumes/{name}", volumeHandler.InspectVolume).Methods("GET")
+	api.HandleFunc("/volumes/{name}", volumeHandler.RemoveVolume).Methods("DELETE")
+
+	// Network routes (static before {id})
+	api.HandleFunc("/networks", networkHandler.ListNetworks).Methods("GET")
+	api.HandleFunc("/networks", networkHandler.CreateNetwork).Methods("POST")
+	api.HandleFunc("/networks/prune", networkHandler.PruneNetworks).Methods("POST")
+	api.HandleFunc("/networks/{id}", networkHandler.InspectNetwork).Methods("GET")
+	api.HandleFunc("/networks/{id}", networkHandler.RemoveNetwork).Methods("DELETE")
+	api.HandleFunc("/networks/{id}/connect", networkHandler.ConnectContainer).Methods("POST")
+	api.HandleFunc("/networks/{id}/disconnect", networkHandler.DisconnectContainer).Methods("POST")
+
+	// Compose routes (static before {id})
+	api.HandleFunc("/compose/projects", composeHandler.ListProjects).Methods("GET")
+	api.HandleFunc("/compose/projects", composeHandler.DeployProject).Methods("POST")
+	api.HandleFunc("/compose/validate", composeHandler.ValidateYAML).Methods("POST")
+	api.HandleFunc("/compose/templates", composeHandler.ListTemplates).Methods("GET")
+	api.HandleFunc("/compose/templates/{name}", composeHandler.GetTemplate).Methods("GET")
+	api.HandleFunc("/compose/projects/{id}", composeHandler.GetProject).Methods("GET")
+	api.HandleFunc("/compose/projects/{id}", composeHandler.DeleteProject).Methods("DELETE")
+	api.HandleFunc("/compose/projects/{id}/start", composeHandler.StartProject).Methods("POST")
+	api.HandleFunc("/compose/projects/{id}/stop", composeHandler.StopProject).Methods("POST")
+	api.HandleFunc("/compose/projects/{id}/restart", composeHandler.RestartProject).Methods("POST")
 
 	// CORS configuration
 	c := cors.New(cors.Options{

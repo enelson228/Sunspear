@@ -52,8 +52,11 @@ func main() {
 		log.Printf("Warning: Failed to load marketplace apps: %v", err)
 	}
 
+	// Initialize compose service
+	composeService := services.NewComposeService(db, dockerService)
+
 	// Create router
-	router := api.NewRouter(cfg, db, dockerService, monitorService, marketplaceService)
+	router := api.NewRouter(cfg, db, dockerService, monitorService, marketplaceService, composeService)
 
 	// Configure server
 	server := &http.Server{

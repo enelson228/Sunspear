@@ -11,6 +11,9 @@
             <router-link to="/" class="nav-link">Dashboard</router-link>
             <router-link to="/containers" class="nav-link">Containers</router-link>
             <router-link to="/images" class="nav-link">Images</router-link>
+            <router-link to="/volumes" class="nav-link">Volumes</router-link>
+            <router-link to="/networks" class="nav-link">Networks</router-link>
+            <router-link to="/compose" class="nav-link">Compose</router-link>
             <router-link to="/apps" class="nav-link">App Store</router-link>
             <router-link to="/system" class="nav-link">System</router-link>
           </div>

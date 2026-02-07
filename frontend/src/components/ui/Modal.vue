@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="fade">
       <div v-if="modelValue" class="modal-overlay" @click.self="close">
-        <div class="modal hud-corners">
+        <div class="modal hud-corners" :class="{ 'modal-wide': wide }">
           <div class="modal-header">
             <slot name="header">{{ title }}</slot>
           </div>
@@ -21,7 +21,8 @@
 <script setup>
 defineProps({
   modelValue: Boolean,
-  title: String
+  title: String,
+  wide: Boolean
 })
 
 const emit = defineEmits(['update:modelValue'])
