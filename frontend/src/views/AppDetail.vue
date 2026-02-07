@@ -276,10 +276,16 @@ async function handleInstall() {
       .filter(([key, value]) => value && value.trim())
       .map(([key, value]) => ({ name: key, value: value.trim() }))
 
+    // Convert port values to strings for the backend
+    const portsAsStrings = {}
+    for (const [key, value] of Object.entries(config.value.ports)) {
+      portsAsStrings[key] = String(value)
+    }
+
     const installPayload = {
       name: config.value.name.trim(),
       env: envArray,
-      ports: config.value.ports,
+      ports: portsAsStrings,
       volumes: config.value.volumes
     }
 

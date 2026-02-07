@@ -7,21 +7,33 @@ import (
 )
 
 type App struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Icon        string            `json:"icon"`
-	Category    string            `json:"category"`
-	Version     string            `json:"version"`
-	Ports       []int             `json:"ports"`
-	Volumes     []string          `json:"volumes"`
-	EnvVars     AppEnvVars        `json:"envVars"`
-	ComposeFile string            `json:"composeFile"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Icon        string     `json:"icon"`
+	Category    string     `json:"category"`
+	Version     string     `json:"version"`
+	Image       string     `json:"image"`
+	Ports       map[string]int `json:"ports"`
+	Volumes     []AppVolume    `json:"volumes"`
+	EnvVars     AppEnvVars     `json:"envVars"`
+	ComposeFile string     `json:"composeFile"`
+}
+
+type AppVolume struct {
+	Container string `json:"container"`
+	Host      string `json:"host"`
+}
+
+type AppEnvVar struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Default     string `json:"default,omitempty"`
 }
 
 type AppEnvVars struct {
-	Required []string `json:"required"`
-	Optional []string `json:"optional"`
+	Required []AppEnvVar `json:"required"`
+	Optional []AppEnvVar `json:"optional"`
 }
 
 type AppCatalog struct {
@@ -147,7 +159,6 @@ func (s *MarketplaceService) UninstallApp(id int) error {
 }
 
 func (s *MarketplaceService) createDefaultCatalog() error {
-	// Create default app catalog
 	defaultCatalog := AppCatalog{
 		Apps: []App{
 			{
@@ -156,12 +167,15 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Description: "Self-hosted monitoring tool",
 				Icon:        "📊",
 				Category:    "monitoring",
-				Version:     "latest",
-				Ports:       []int{3001},
-				Volumes:     []string{"data"},
+				Version:     "1",
+				Image:       "louislam/uptime-kuma:1",
+				Ports:       map[string]int{"web": 3001},
+				Volumes: []AppVolume{
+					{Container: "/app/data", Host: "./uptime-kuma-data"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{},
 				},
 				ComposeFile: "uptime-kuma.yml",
 			},
@@ -172,11 +186,17 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "🎬",
 				Category:    "media",
 				Version:     "latest",
-				Ports:       []int{8096},
-				Volumes:     []string{"config", "media"},
+				Image:       "jellyfin/jellyfin:latest",
+				Ports:       map[string]int{"web": 8096},
+				Volumes: []AppVolume{
+					{Container: "/config", Host: "./jellyfin-config"},
+					{Container: "/media", Host: "./jellyfin-media"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{"TZ"},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{
+						{Name: "TZ", Description: "Timezone", Default: "America/New_York"},
+					},
 				},
 				ComposeFile: "jellyfin.yml",
 			},
@@ -187,11 +207,16 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "🔐",
 				Category:    "security",
 				Version:     "latest",
-				Ports:       []int{80},
-				Volumes:     []string{"data"},
+				Image:       "vaultwarden/server:latest",
+				Ports:       map[string]int{"web": 80},
+				Volumes: []AppVolume{
+					{Container: "/data", Host: "./vaultwarden-data"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{"ADMIN_TOKEN"},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{
+						{Name: "ADMIN_TOKEN", Description: "Admin panel token"},
+					},
 				},
 				ComposeFile: "vaultwarden.yml",
 			},
@@ -202,11 +227,15 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "🐳",
 				Category:    "tools",
 				Version:     "latest",
-				Ports:       []int{9000},
-				Volumes:     []string{"data", "/var/run/docker.sock"},
+				Image:       "portainer/portainer-ce:latest",
+				Ports:       map[string]int{"web": 9000},
+				Volumes: []AppVolume{
+					{Container: "/data", Host: "portainer-data"},
+					{Container: "/var/run/docker.sock", Host: "/var/run/docker.sock"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{},
 				},
 				ComposeFile: "portainer.yml",
 			},
@@ -217,11 +246,17 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "☁️",
 				Category:    "productivity",
 				Version:     "latest",
-				Ports:       []int{8080},
-				Volumes:     []string{"data"},
+				Image:       "nextcloud:latest",
+				Ports:       map[string]int{"web": 80},
+				Volumes: []AppVolume{
+					{Container: "/var/www/html", Host: "./nextcloud-data"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{"NEXTCLOUD_ADMIN_USER", "NEXTCLOUD_ADMIN_PASSWORD"},
-					Optional: []string{},
+					Required: []AppEnvVar{
+						{Name: "NEXTCLOUD_ADMIN_USER", Description: "Admin username"},
+						{Name: "NEXTCLOUD_ADMIN_PASSWORD", Description: "Admin password"},
+					},
+					Optional: []AppEnvVar{},
 				},
 				ComposeFile: "nextcloud.yml",
 			},
@@ -232,11 +267,17 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "🌿",
 				Category:    "development",
 				Version:     "latest",
-				Ports:       []int{3000},
-				Volumes:     []string{"data"},
+				Image:       "gitea/gitea:latest",
+				Ports:       map[string]int{"web": 3000, "ssh": 22},
+				Volumes: []AppVolume{
+					{Container: "/data", Host: "./gitea-data"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{"USER_UID", "USER_GID"},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{
+						{Name: "USER_UID", Description: "UID for Gitea user", Default: "1000"},
+						{Name: "USER_GID", Description: "GID for Gitea user", Default: "1000"},
+					},
 				},
 				ComposeFile: "gitea.yml",
 			},
@@ -247,11 +288,17 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "🛡️",
 				Category:    "networking",
 				Version:     "latest",
-				Ports:       []int{80, 53},
-				Volumes:     []string{"pihole", "dnsmasq"},
+				Image:       "pihole/pihole:latest",
+				Ports:       map[string]int{"web": 80, "dns": 53},
+				Volumes: []AppVolume{
+					{Container: "/etc/pihole", Host: "./pihole-config"},
+					{Container: "/etc/dnsmasq.d", Host: "./pihole-dnsmasq"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{"WEBPASSWORD"},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{
+						{Name: "WEBPASSWORD", Description: "Web interface password"},
+					},
 				},
 				ComposeFile: "pihole.yml",
 			},
@@ -262,11 +309,18 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "🏠",
 				Category:    "tools",
 				Version:     "latest",
-				Ports:       []int{80},
-				Volumes:     []string{"config"},
+				Image:       "linuxserver/heimdall:latest",
+				Ports:       map[string]int{"web": 80},
+				Volumes: []AppVolume{
+					{Container: "/config", Host: "./heimdall-config"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{"PUID", "PGID", "TZ"},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{
+						{Name: "PUID", Description: "User ID", Default: "1000"},
+						{Name: "PGID", Description: "Group ID", Default: "1000"},
+						{Name: "TZ", Description: "Timezone", Default: "America/New_York"},
+					},
 				},
 				ComposeFile: "heimdall.yml",
 			},
@@ -277,11 +331,16 @@ func (s *MarketplaceService) createDefaultCatalog() error {
 				Icon:        "📈",
 				Category:    "monitoring",
 				Version:     "latest",
-				Ports:       []int{3000},
-				Volumes:     []string{"data"},
+				Image:       "grafana/grafana:latest",
+				Ports:       map[string]int{"web": 3000},
+				Volumes: []AppVolume{
+					{Container: "/var/lib/grafana", Host: "grafana-data"},
+				},
 				EnvVars: AppEnvVars{
-					Required: []string{},
-					Optional: []string{"GF_SECURITY_ADMIN_PASSWORD"},
+					Required: []AppEnvVar{},
+					Optional: []AppEnvVar{
+						{Name: "GF_SECURITY_ADMIN_PASSWORD", Description: "Admin password", Default: "admin"},
+					},
 				},
 				ComposeFile: "grafana.yml",
 			},

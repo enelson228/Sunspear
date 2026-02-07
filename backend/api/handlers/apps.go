@@ -53,10 +53,15 @@ func (h *AppHandler) InstallApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
+	// Parse request body matching frontend payload format
 	var installReq struct {
-		EnvVars map[string]string `json:"envVars"`
-		Config  map[string]string `json:"config"`
+		Name    string            `json:"name"`
+		Env     []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"env"`
+		Ports   map[string]string `json:"ports"`
+		Volumes map[string]string `json:"volumes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&installReq); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -64,15 +69,19 @@ func (h *AppHandler) InstallApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required env vars
+	envMap := make(map[string]string)
+	for _, e := range installReq.Env {
+		envMap[e.Name] = e.Value
+	}
 	for _, required := range app.EnvVars.Required {
-		if _, ok := installReq.EnvVars[required]; !ok {
-			http.Error(w, fmt.Sprintf("Missing required environment variable: %s", required), http.StatusBadRequest)
+		if val, ok := envMap[required.Name]; !ok || val == "" {
+			http.Error(w, fmt.Sprintf("Missing required environment variable: %s", required.Name), http.StatusBadRequest)
 			return
 		}
 	}
 
-	// Build image name
-	imageName := fmt.Sprintf("%s:%s", appID, app.Version)
+	// Use the app's Image field for the actual Docker Hub image
+	imageName := app.Image
 
 	// Pull the image
 	pullReader, err := h.dockerService.PullImage(r.Context(), imageName)
@@ -80,39 +89,49 @@ func (h *AppHandler) InstallApp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to pull image: %v", err), http.StatusInternalServerError)
 		return
 	}
-	// Consume the pull output
 	io.Copy(io.Discard, pullReader)
 	pullReader.Close()
 
 	// Prepare environment variables
 	env := []string{}
-	for k, v := range installReq.EnvVars {
-		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	for _, e := range installReq.Env {
+		if e.Value != "" {
+			env = append(env, fmt.Sprintf("%s=%s", e.Name, e.Value))
+		}
 	}
 
-	// Prepare port bindings
+	// Prepare port bindings from user-configured ports
 	exposedPorts := nat.PortSet{}
 	portBindings := nat.PortMap{}
-	for _, port := range app.Ports {
-		portStr := fmt.Sprintf("%d/tcp", port)
+	for label, hostPortStr := range installReq.Ports {
+		// Get the container port from the app catalog using the label
+		containerPort, ok := app.Ports[label]
+		if !ok {
+			continue
+		}
+		portStr := fmt.Sprintf("%d/tcp", containerPort)
 		exposedPorts[nat.Port(portStr)] = struct{}{}
 		portBindings[nat.Port(portStr)] = []nat.PortBinding{
 			{
 				HostIP:   "0.0.0.0",
-				HostPort: strconv.Itoa(port),
+				HostPort: hostPortStr,
 			},
 		}
 	}
 
-	// Prepare volumes
+	// Prepare volume binds from user-configured paths
 	binds := []string{}
-	for _, vol := range app.Volumes {
-		// Create named volumes or bind mounts
-		binds = append(binds, fmt.Sprintf("%s-%s:%s", appID, vol, fmt.Sprintf("/data/%s", vol)))
+	for containerPath, hostPath := range installReq.Volumes {
+		if hostPath != "" {
+			binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPath))
+		}
 	}
 
-	// Container name
-	containerName := fmt.Sprintf("%s-app", appID)
+	// Use user-specified container name, fallback to app ID
+	containerName := installReq.Name
+	if containerName == "" {
+		containerName = fmt.Sprintf("%s-app", appID)
+	}
 
 	// Create container
 	containerConfig := &container.Config{
@@ -137,22 +156,27 @@ func (h *AppHandler) InstallApp(w http.ResponseWriter, r *http.Request) {
 
 	// Start container
 	if err := h.dockerService.StartContainer(r.Context(), createResp.ID); err != nil {
-		// Cleanup: remove the created container
 		h.dockerService.RemoveContainer(r.Context(), createResp.ID, true)
 		http.Error(w, fmt.Sprintf("Failed to start container: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	// Record in database
-	installedApp, err := h.marketplaceService.InstallApp(appID, []string{createResp.ID}, installReq.Config)
+	configMap := make(map[string]string)
+	configMap["containerName"] = containerName
+	installedApp, err := h.marketplaceService.InstallApp(appID, []string{createResp.ID}, configMap)
 	if err != nil {
-		// Note: Container is already running, but DB tracking failed
-		// In production, you might want to implement rollback here
 		http.Error(w, fmt.Sprintf("Container started but failed to track in database: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, installedApp)
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"id":          installedApp.ID,
+		"appId":       installedApp.AppID,
+		"appName":     installedApp.AppName,
+		"containerId": createResp.ID,
+		"status":      "running",
+	})
 }
 
 func (h *AppHandler) ListInstalledApps(w http.ResponseWriter, r *http.Request) {
@@ -205,12 +229,10 @@ func (h *AppHandler) UninstallApp(w http.ResponseWriter, r *http.Request) {
 
 	// Stop and remove each container
 	for _, containerID := range containerIDs {
-		// Stop container with 10 second timeout
 		if err := h.dockerService.StopContainer(r.Context(), containerID, 10); err != nil {
 			// Log error but continue with removal
 		}
 
-		// Remove container
 		if err := h.dockerService.RemoveContainer(r.Context(), containerID, true); err != nil {
 			// Log error but continue
 		}

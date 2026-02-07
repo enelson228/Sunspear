@@ -55,7 +55,7 @@ export const useAppsStore = defineStore('apps', () => {
 
   async function uninstallApp(installedId) {
     try {
-      await api.delete(`/apps/installed/${installedId}/uninstall`)
+      await api.post(`/apps/installed/${installedId}/uninstall`)
       await fetchInstalledApps()
     } catch (err) {
       error.value = err.message
