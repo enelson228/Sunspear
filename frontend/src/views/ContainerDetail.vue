@@ -218,6 +218,7 @@
           <LogViewer
             :logs="logs"
             :loading="logsLoading"
+            :container-id="containerId"
             @refresh="fetchLogs"
             @download="downloadLogs"
           />

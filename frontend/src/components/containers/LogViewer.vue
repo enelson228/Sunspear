@@ -2,11 +2,19 @@
   <div class="log-viewer hud-corners">
     <div class="log-header">
       <div class="log-title">
-        <span class="status-dot online status-pulse"></span>
-        <span class="font-mono">CONTAINER LOGS</span>
+        <span :class="['status-dot', streaming ? 'online' : 'offline', { 'status-pulse': streaming }]"></span>
+        <span class="font-mono">{{ streaming ? 'STREAMING LOGS' : 'CONTAINER LOGS' }}</span>
       </div>
       <div class="log-controls">
-        <Button variant="secondary" size="sm" @click="$emit('refresh')">
+        <Button
+          variant="secondary"
+          size="sm"
+          @click="toggleStreaming"
+          :class="{ 'btn-active': streaming }"
+        >
+          {{ streaming ? 'STOP STREAM' : 'STREAM' }}
+        </Button>
+        <Button variant="secondary" size="sm" @click="$emit('refresh')" :disabled="streaming">
           REFRESH
         </Button>
         <Button variant="secondary" size="sm" @click="$emit('download')">
@@ -19,7 +27,7 @@
         <div class="spinner"></div>
         <span>Loading logs...</span>
       </div>
-      <pre v-else-if="logs" class="log-text">{{ logs }}</pre>
+      <pre v-else-if="displayLogs" class="log-text">{{ displayLogs }}</pre>
       <div v-else class="log-empty">
         <span>No logs available</span>
       </div>
@@ -28,12 +36,14 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
+import { useWebSocket } from '@/composables/useWebSocket'
 import Button from '@/components/ui/Button.vue'
 
 const props = defineProps({
   logs: String,
   loading: Boolean,
+  containerId: String,
   autoScroll: {
     type: Boolean,
     default: true
@@ -43,15 +53,58 @@ const props = defineProps({
 defineEmits(['refresh', 'download'])
 
 const logContainer = ref(null)
+const streaming = ref(false)
+const streamedLogs = ref('')
 
-watch(() => props.logs, async () => {
-  if (props.autoScroll) {
-    await nextTick()
-    if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    }
+// WebSocket for log streaming
+const { data: wsData, connected: wsConnected, connect: wsConnect, disconnect: wsDisconnect } = useWebSocket(`/ws/logs/${props.containerId}`)
+
+// Display either streamed logs or regular logs
+const displayLogs = computed(() => {
+  return streaming.value ? streamedLogs.value : props.logs
+})
+
+function toggleStreaming() {
+  if (streaming.value) {
+    stopStreaming()
+  } else {
+    startStreaming()
+  }
+}
+
+function startStreaming() {
+  streamedLogs.value = props.logs || '' // Start with existing logs
+  streaming.value = true
+  wsConnect()
+}
+
+function stopStreaming() {
+  streaming.value = false
+  wsDisconnect()
+}
+
+// Watch for incoming log messages
+watch(wsData, (data) => {
+  if (data && data.type === 'log' && streaming.value) {
+    streamedLogs.value += data.data + '\n'
+    scrollToBottom()
   }
 })
+
+// Watch for regular logs updates
+watch(() => props.logs, async () => {
+  if (!streaming.value && props.autoScroll) {
+    await nextTick()
+    scrollToBottom()
+  }
+})
+
+async function scrollToBottom() {
+  await nextTick()
+  if (logContainer.value) {
+    logContainer.value.scrollTop = logContainer.value.scrollHeight
+  }
+}
 </script>
 
 <style scoped>
@@ -128,5 +181,11 @@ watch(() => props.logs, async () => {
 
 .log-content::-webkit-scrollbar-thumb:hover {
   background: var(--reach-amber);
+}
+
+.btn-active {
+  background-color: var(--reach-titanium);
+  border-color: var(--reach-cyan);
+  color: var(--reach-cyan);
 }
 </style>

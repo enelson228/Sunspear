@@ -27,6 +27,7 @@ func NewRouter(
 	systemHandler := handlers.NewSystemHandler(dockerService, monitorService)
 	appHandler := handlers.NewAppHandler(marketplaceService, dockerService)
 	authHandler := handlers.NewAuthHandler(cfg, db)
+	wsHandler := handlers.NewWSHandler(dockerService, monitorService)
 
 	// Public routes
 	r.HandleFunc("/health", healthCheck).Methods("GET")
@@ -71,9 +72,16 @@ func NewRouter(
 
 	// App marketplace routes
 	api.HandleFunc("/apps", appHandler.ListApps).Methods("GET")
+	api.HandleFunc("/apps/installed", appHandler.ListInstalledApps).Methods("GET")
+	api.HandleFunc("/apps/installed/{id}", appHandler.GetInstalledApp).Methods("GET")
+	api.HandleFunc("/apps/installed/{id}/uninstall", appHandler.UninstallApp).Methods("POST")
 	api.HandleFunc("/apps/{id}", appHandler.GetApp).Methods("GET")
 	api.HandleFunc("/apps/{id}/install", appHandler.InstallApp).Methods("POST")
-	api.HandleFunc("/apps/installed", appHandler.ListInstalledApps).Methods("GET")
+
+	// WebSocket routes
+	api.HandleFunc("/ws/events", wsHandler.StreamEvents).Methods("GET")
+	api.HandleFunc("/ws/logs/{id}", wsHandler.StreamLogs).Methods("GET")
+	api.HandleFunc("/ws/metrics", wsHandler.StreamMetrics).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{

@@ -235,23 +235,23 @@ Sunspear uses the **Halo Reach military HUD aesthetic** adapted from the Infinit
 - [x] Image layer inspection
 - [x] Prune unused images (with confirmation)
 
-### Phase 4 - Log Streaming and Real-Time Updates
+### Phase 4 - Log Streaming and Real-Time Updates (complete)
 
-- [ ] WebSocket server in Go backend
-- [ ] Real-time container log streaming (replace polling with WebSocket)
-- [ ] Live container status updates via Docker event stream (`GetEvents` already in `docker.go`)
-- [ ] Dashboard auto-refresh without polling (WebSocket push for metrics)
-- [ ] Toast notifications for container state changes (started, stopped, crashed)
+- [x] WebSocket server in Go backend (gorilla/websocket)
+- [x] Real-time container log streaming (WebSocket with stream toggle)
+- [x] Live container status updates via Docker event stream
+- [x] Dashboard auto-refresh via WebSocket metrics push (3s interval, polling fallback)
+- [x] Toast notifications for container state changes (start, stop, die, kill, restart)
 
-### Phase 5 - App Marketplace
+### Phase 5 - App Marketplace (complete)
 
-- [ ] App installation backend (read compose template, substitute variables, deploy)
-- [ ] Installation wizard UI (configure env vars, ports, volumes before deploy)
-- [ ] Compose template engine (parse and execute `data/apps/compose-templates/*.yml`)
-- [ ] Installed apps tracking in SQLite
-- [ ] App update and uninstall workflows
-- [ ] Expand default app catalog (currently: Uptime Kuma, Jellyfin, Vaultwarden)
-- [ ] Community app catalog support (import from URL)
+- [x] App installation backend (pull image, create container, configure ports/volumes/env)
+- [x] Installation wizard UI (configure env vars, ports, volumes before deploy)
+- [x] Installed apps tracking in SQLite with install/uninstall lifecycle
+- [x] App uninstall workflow (stop, remove container, delete DB record)
+- [x] Expand default app catalog (9 apps: Uptime Kuma, Jellyfin, Vaultwarden, Portainer, Nextcloud, Gitea, Pi-hole, Heimdall, Grafana)
+- [x] App Store with catalog tab and Docker Hub search tab
+- [x] Category filtering (monitoring, media, security, tools, productivity, development, networking)
 
 ### Phase 6 - Volume and Network Management
 

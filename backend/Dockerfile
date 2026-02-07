@@ -8,7 +8,7 @@ RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
 # Copy go mod files
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod download || true && go mod tidy
 
 # Copy source code
 COPY . .

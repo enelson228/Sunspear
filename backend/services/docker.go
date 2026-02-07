@@ -68,6 +68,16 @@ func (s *DockerService) GetContainerLogs(ctx context.Context, containerID string
 	})
 }
 
+func (s *DockerService) StreamContainerLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
+	return s.client.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Tail:       "50",
+		Timestamps: true,
+	})
+}
+
 func (s *DockerService) GetContainerStats(ctx context.Context, containerID string) (types.ContainerStats, error) {
 	return s.client.ContainerStats(ctx, containerID, false)
 }

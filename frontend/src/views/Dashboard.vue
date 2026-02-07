@@ -24,8 +24,15 @@
     <main class="dashboard-main">
       <div class="container">
         <div class="dashboard-header">
-          <h1>OPERATIONAL DASHBOARD</h1>
-          <p class="subtitle">System Status and Container Management</p>
+          <div>
+            <h1>OPERATIONAL DASHBOARD</h1>
+            <p class="subtitle">System Status and Container Management</p>
+          </div>
+          <div class="connection-status">
+            <span class="status-label">METRICS STREAM</span>
+            <div :class="['status-dot', wsConnected ? 'online' : 'warning', { 'status-pulse': wsConnected }]"></div>
+            <span class="status-text">{{ wsConnected ? 'CONNECTED' : 'RECONNECTING' }}</span>
+          </div>
         </div>
 
         <div class="metrics-grid">
@@ -87,11 +94,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { useContainersStore } from '@/stores/containers'
+import { useWebSocket } from '@/composables/useWebSocket'
 import StatusPanel from '@/components/ui/StatusPanel.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -100,6 +108,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 const systemStore = useSystemStore()
 const containersStore = useContainersStore()
+
+// WebSocket for real-time metrics
+const { data: wsData, connected: wsConnected, connect: wsConnect, disconnect: wsDisconnect } = useWebSocket('/ws/metrics')
 
 const cpuUsage = computed(() => {
   return systemStore.metrics?.cpu.usagePercent.toFixed(1) + '%' || '--'
@@ -140,12 +151,29 @@ function handleLogout() {
   router.push('/login')
 }
 
+// Update system metrics when WebSocket message arrives
+watch(wsData, (newData) => {
+  if (newData && newData.type === 'metrics') {
+    systemStore.metrics = newData.data
+  }
+})
+
+// Fallback to polling if WebSocket disconnects
+watch(wsConnected, (connected) => {
+  if (!connected) {
+    systemStore.startPolling(10000) // Poll every 10s as fallback
+  } else {
+    systemStore.stopPolling()
+  }
+})
+
 onMounted(() => {
-  systemStore.startPolling()
+  wsConnect()
   containersStore.fetchContainers()
 })
 
 onUnmounted(() => {
+  wsDisconnect()
   systemStore.stopPolling()
 })
 </script>
@@ -230,11 +258,32 @@ onUnmounted(() => {
 }
 
 .dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: var(--space-2xl);
 }
 
 .dashboard-header h1 {
   margin-bottom: var(--space-sm);
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.status-label {
+  color: var(--text-muted);
+}
+
+.status-text {
+  color: var(--text-secondary);
 }
 
 .subtitle {
