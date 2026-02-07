@@ -76,6 +76,10 @@ func (s *DockerService) CreateContainer(ctx context.Context, config *container.C
 	return s.client.ContainerCreate(ctx, config, hostConfig, nil, nil, containerName)
 }
 
+func (s *DockerService) RenameContainer(ctx context.Context, containerID string, newName string) error {
+	return s.client.ContainerRename(ctx, containerID, newName)
+}
+
 // Image operations
 
 func (s *DockerService) ListImages(ctx context.Context) ([]types.ImageSummary, error) {
@@ -92,6 +96,31 @@ func (s *DockerService) RemoveImage(ctx context.Context, imageID string, force b
 
 func (s *DockerService) SearchImages(ctx context.Context, term string) ([]registry.SearchResult, error) {
 	return s.client.ImageSearch(ctx, term, types.ImageSearchOptions{Limit: 25})
+}
+
+func (s *DockerService) TagImage(ctx context.Context, imageID string, newRef string) error {
+	return s.client.ImageTag(ctx, imageID, newRef)
+}
+
+func (s *DockerService) InspectImage(ctx context.Context, imageID string) (types.ImageInspect, error) {
+	inspect, _, err := s.client.ImageInspectWithRaw(ctx, imageID)
+	return inspect, err
+}
+
+func (s *DockerService) GetImageHistory(ctx context.Context, imageID string) ([]types.ImageHistory, error) {
+	return s.client.ImageHistory(ctx, imageID)
+}
+
+func (s *DockerService) PruneImages(ctx context.Context) (types.ImagesPruneReport, error) {
+	return s.client.ImagesPrune(ctx, filters.NewArgs())
+}
+
+func (s *DockerService) BuildImage(ctx context.Context, buildContext io.Reader, tags []string) (types.ImageBuildResponse, error) {
+	return s.client.ImageBuild(ctx, buildContext, types.ImageBuildOptions{
+		Tags:        tags,
+		Remove:      true,
+		ForceRemove: true,
+	})
 }
 
 // System operations

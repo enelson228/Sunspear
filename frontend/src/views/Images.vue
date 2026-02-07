@@ -27,6 +27,12 @@
             <p class="subtitle">Manage Docker images and registries</p>
           </div>
           <div class="header-actions">
+            <Button variant="secondary" @click="showPruneModal = true">
+              PRUNE
+            </Button>
+            <Button variant="secondary" @click="showBuildModal = true">
+              BUILD
+            </Button>
             <Button variant="primary" @click="fetchImages" :loading="loading">
               {{ loading ? 'REFRESHING...' : 'REFRESH' }}
             </Button>
@@ -72,6 +78,8 @@
             :loading="actionLoading === image.Id"
             @create="handleCreateContainer"
             @remove="handleRemove"
+            @tag="handleTagClick"
+            @inspect="handleInspectClick"
           />
         </div>
       </div>
@@ -116,6 +124,111 @@
       </template>
     </Modal>
 
+    <!-- Tag Image Modal -->
+    <Modal v-model="showTagModal" title="TAG IMAGE">
+      <div class="tag-form">
+        <Input
+          v-model="tagForm.repo"
+          label="REPOSITORY"
+          placeholder="myregistry/myimage"
+          type="text"
+        />
+        <Input
+          v-model="tagForm.tag"
+          label="TAG"
+          placeholder="v1.0.0"
+          type="text"
+        />
+        <p class="text-secondary text-sm mt-sm">
+          Example: myregistry/myimage:v1.0.0
+        </p>
+      </div>
+
+      <template #footer>
+        <Button variant="secondary" @click="showTagModal = false">
+          CANCEL
+        </Button>
+        <Button variant="primary" @click="handleTag" :loading="tagging">
+          {{ tagging ? 'TAGGING...' : 'TAG IMAGE' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Inspect Image Modal -->
+    <Modal v-model="showInspectModal" title="IMAGE DETAILS">
+      <div v-if="inspecting" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading image details...</p>
+      </div>
+      <div v-else-if="imageDetails" class="inspect-content">
+        <div class="inspect-section">
+          <h4 class="inspect-title">CONFIGURATION</h4>
+          <pre class="inspect-code">{{ JSON.stringify(imageDetails.Config, null, 2) }}</pre>
+        </div>
+        <div class="inspect-section" v-if="imageHistory && imageHistory.length">
+          <h4 class="inspect-title">LAYERS ({{ imageHistory.length }})</h4>
+          <div class="layers-list">
+            <div v-for="(layer, index) in imageHistory" :key="index" class="layer-item">
+              <span class="layer-id font-mono">{{ layer.Id?.substring(0, 12) || 'none' }}</span>
+              <span class="layer-size">{{ formatBytes(layer.Size) }}</span>
+              <span class="layer-created">{{ formatDate(layer.Created) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <Button variant="secondary" @click="closeInspectModal">
+          CLOSE
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Prune Images Modal -->
+    <Modal v-model="showPruneModal" title="CONFIRM PRUNE">
+      <p>Are you sure you want to prune unused images?</p>
+      <p class="text-secondary mt-sm">This will remove all dangling images not used by any container. This action cannot be undone.</p>
+
+      <template #footer>
+        <Button variant="secondary" @click="showPruneModal = false">
+          CANCEL
+        </Button>
+        <Button variant="danger" @click="handlePrune" :loading="pruning">
+          {{ pruning ? 'PRUNING...' : 'PRUNE IMAGES' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Build Image Modal -->
+    <Modal v-model="showBuildModal" title="BUILD IMAGE">
+      <div class="build-form">
+        <Input
+          v-model="buildForm.tags"
+          label="IMAGE TAG *"
+          placeholder="myimage:latest"
+          type="text"
+        />
+        <div class="form-section">
+          <label class="label">DOCKERFILE CONTENT *</label>
+          <textarea
+            v-model="buildForm.dockerfile"
+            class="dockerfile-input"
+            placeholder="FROM nginx:alpine&#10;COPY . /usr/share/nginx/html&#10;..."
+            rows="12"
+          ></textarea>
+        </div>
+      </div>
+
+      <template #footer>
+        <Button variant="secondary" @click="closeBuildModal">
+          CANCEL
+        </Button>
+        <Button variant="primary" @click="handleBuild" :loading="building">
+          {{ building ? 'BUILDING...' : 'BUILD IMAGE' }}
+        </Button>
+      </template>
+    </Modal>
+
     <!-- Toast Notification -->
     <div v-if="toast.show" class="toast" :class="`toast-${toast.type}`">
       {{ toast.message }}
@@ -141,9 +254,22 @@ const searchQuery = ref('')
 const actionLoading = ref(null)
 const showPullModal = ref(false)
 const showRemoveModal = ref(false)
+const showTagModal = ref(false)
+const showInspectModal = ref(false)
+const showPruneModal = ref(false)
+const showBuildModal = ref(false)
 const pullImageName = ref('')
 const pulling = ref(false)
+const tagging = ref(false)
+const inspecting = ref(false)
+const pruning = ref(false)
+const building = ref(false)
 const imageToRemove = ref(null)
+const imageToTag = ref(null)
+const imageDetails = ref(null)
+const imageHistory = ref(null)
+const tagForm = ref({ repo: '', tag: '' })
+const buildForm = ref({ tags: '', dockerfile: '' })
 const toast = ref({ show: false, message: '', type: 'success' })
 
 const images = computed(() => imagesStore.images)
@@ -213,7 +339,106 @@ async function confirmRemove() {
 }
 
 function handleCreateContainer(image) {
-  showToast('Container creation from image coming soon', 'warning')
+  router.push('/containers')
+}
+
+function handleTagClick(imageId) {
+  imageToTag.value = imageId
+  tagForm.value = { repo: '', tag: '' }
+  showTagModal.value = true
+}
+
+async function handleTag() {
+  if (!tagForm.value.repo) {
+    showToast('Repository name is required', 'error')
+    return
+  }
+  tagging.value = true
+  try {
+    await imagesStore.tagImage(imageToTag.value, tagForm.value.repo, tagForm.value.tag || 'latest')
+    showToast('Image tagged successfully', 'success')
+    showTagModal.value = false
+  } catch (err) {
+    showToast('Failed to tag image', 'error')
+  } finally {
+    tagging.value = false
+  }
+}
+
+async function handleInspectClick(imageId) {
+  showInspectModal.value = true
+  inspecting.value = true
+  imageDetails.value = null
+  imageHistory.value = null
+  try {
+    const [details, history] = await Promise.all([
+      imagesStore.inspectImage(imageId),
+      imagesStore.getImageHistory(imageId)
+    ])
+    imageDetails.value = details
+    imageHistory.value = history
+  } catch (err) {
+    showToast('Failed to load image details', 'error')
+    showInspectModal.value = false
+  } finally {
+    inspecting.value = false
+  }
+}
+
+function closeInspectModal() {
+  showInspectModal.value = false
+  imageDetails.value = null
+  imageHistory.value = null
+}
+
+async function handlePrune() {
+  pruning.value = true
+  try {
+    const result = await imagesStore.pruneImages()
+    const space = formatBytes(result.spaceReclaimed || 0)
+    const count = result.deleted?.length || 0
+    showToast(`Pruned ${count} image(s). Space reclaimed: ${space}`, 'success')
+    showPruneModal.value = false
+  } catch (err) {
+    showToast('Failed to prune images', 'error')
+  } finally {
+    pruning.value = false
+  }
+}
+
+async function handleBuild() {
+  if (!buildForm.value.tags || !buildForm.value.dockerfile) {
+    showToast('Image tag and Dockerfile content are required', 'error')
+    return
+  }
+  building.value = true
+  try {
+    await imagesStore.buildImage(buildForm.value.dockerfile, buildForm.value.tags)
+    showToast('Image built successfully', 'success')
+    closeBuildModal()
+  } catch (err) {
+    showToast('Failed to build image', 'error')
+  } finally {
+    building.value = false
+  }
+}
+
+function closeBuildModal() {
+  showBuildModal.value = false
+  buildForm.value = { tags: '', dockerfile: '' }
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i]
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return 'N/A'
+  return new Date(timestamp * 1000).toISOString().replace('T', ' ').substring(0, 19)
 }
 
 function showToast(message, type = 'success') {
@@ -396,6 +621,108 @@ onMounted(() => {
 .toast-warning {
   border: 1px solid var(--reach-amber);
   color: var(--reach-amber);
+}
+
+.tag-form,
+.build-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.inspect-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.inspect-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.inspect-title {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--reach-amber);
+  margin: 0;
+}
+
+.inspect-code {
+  background-color: var(--reach-slate);
+  border: 1px solid rgba(74, 85, 104, 0.5);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  overflow-x: auto;
+  max-height: 400px;
+  white-space: pre-wrap;
+}
+
+.layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.layer-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  background-color: var(--reach-slate);
+  border: 1px solid rgba(74, 85, 104, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+
+.layer-id {
+  color: var(--reach-cyan);
+}
+
+.layer-size {
+  color: var(--text-secondary);
+}
+
+.layer-created {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.dockerfile-input {
+  width: 100%;
+  min-height: 300px;
+  padding: var(--space-md);
+  background-color: var(--reach-slate);
+  border: 1px solid rgba(74, 85, 104, 0.5);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.dockerfile-input:focus {
+  outline: none;
+  border-color: var(--reach-amber);
+  box-shadow: 0 0 0 2px rgba(246, 166, 35, 0.2);
+}
+
+.dockerfile-input::placeholder {
+  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {

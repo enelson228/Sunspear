@@ -31,9 +31,23 @@
       <Button
         variant="secondary"
         size="sm"
+        @click="$emit('tag', image.Id)"
+      >
+        TAG
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        @click="$emit('inspect', image.Id)"
+      >
+        INSPECT
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
         @click="$emit('create', image)"
       >
-        CREATE CONTAINER
+        CREATE
       </Button>
       <Button
         variant="danger"
@@ -64,7 +78,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['create', 'remove'])
+defineEmits(['create', 'remove', 'tag', 'inspect'])
 
 function getImageName() {
   if (props.image.RepoTags && props.image.RepoTags.length > 0) {
@@ -177,12 +191,12 @@ function formatDate(timestamp) {
 }
 
 .image-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-sm);
 }
 
 .image-actions .btn {
-  flex: 1;
   font-size: 0.75rem;
   padding: var(--space-xs) var(--space-sm);
 }

@@ -27,7 +27,24 @@
               ← BACK TO CONTAINERS
             </Button>
             <h1>CONTAINER DETAILS</h1>
-            <p class="subtitle font-mono">{{ containerName }}</p>
+            <div class="name-section">
+              <template v-if="!renaming">
+                <p class="subtitle font-mono">{{ containerName }}</p>
+                <button class="rename-btn" @click="startRename" title="Rename container">&#9998;</button>
+              </template>
+              <template v-else>
+                <input
+                  v-model="newName"
+                  class="rename-input"
+                  @keyup.enter="confirmRename"
+                  @keyup.escape="cancelRename"
+                  ref="renameInput"
+                  placeholder="New name..."
+                />
+                <Button variant="primary" size="sm" @click="confirmRename" :loading="renameLoading">OK</Button>
+                <Button variant="secondary" size="sm" @click="cancelRename">ESC</Button>
+              </template>
+            </div>
           </div>
           <div class="header-actions" v-if="containerData">
             <Badge :variant="statusVariant" :pulse="containerData.State.Running">
@@ -162,6 +179,31 @@
             </Card>
           </div>
 
+          <!-- Resource Stats -->
+          <Card class="stats-section" v-if="containerData.State.Running">
+            <h3 class="section-title">RESOURCE USAGE</h3>
+            <div class="stats-grid" v-if="stats">
+              <div class="stat-item">
+                <span class="stat-label">CPU USAGE</span>
+                <div class="stat-bar-container">
+                  <div class="stat-bar" :style="{ width: cpuPercent + '%' }"></div>
+                </div>
+                <span class="stat-value font-mono">{{ cpuPercent.toFixed(1) }}%</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">MEMORY</span>
+                <div class="stat-bar-container">
+                  <div class="stat-bar stat-bar-cyan" :style="{ width: memPercent + '%' }"></div>
+                </div>
+                <span class="stat-value font-mono">{{ formatBytes(memUsage) }} / {{ formatBytes(memLimit) }}</span>
+              </div>
+            </div>
+            <div v-else class="stats-loading">
+              <div class="spinner"></div>
+              <p class="text-secondary">Loading stats...</p>
+            </div>
+          </Card>
+
           <!-- Environment Variables -->
           <Card class="env-card" v-if="containerData.Config.Env && containerData.Config.Env.length">
             <h3 class="section-title">ENVIRONMENT VARIABLES</h3>
@@ -206,7 +248,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useContainersStore } from '@/stores/containers'
@@ -231,6 +273,16 @@ const actionLoading = ref(null)
 const showRemoveModal = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
 
+// Rename state
+const renaming = ref(false)
+const newName = ref('')
+const renameLoading = ref(false)
+const renameInput = ref(null)
+
+// Stats state
+const stats = ref(null)
+const statsInterval = ref(null)
+
 const containerId = computed(() => route.params.id)
 const containerName = computed(() => {
   if (!containerData.value) return ''
@@ -242,6 +294,24 @@ const statusVariant = computed(() => {
   if (containerData.value.State.Running) return 'online'
   if (containerData.value.State.Paused) return 'warning'
   return 'offline'
+})
+
+const cpuPercent = computed(() => {
+  if (!stats.value) return 0
+  const cpuDelta = stats.value.cpu_stats?.cpu_usage?.total_usage - stats.value.precpu_stats?.cpu_usage?.total_usage
+  const systemDelta = stats.value.cpu_stats?.system_cpu_usage - stats.value.precpu_stats?.system_cpu_usage
+  const numCpus = stats.value.cpu_stats?.online_cpus || 1
+  if (systemDelta > 0 && cpuDelta > 0) {
+    return (cpuDelta / systemDelta) * numCpus * 100
+  }
+  return 0
+})
+
+const memUsage = computed(() => stats.value?.memory_stats?.usage || 0)
+const memLimit = computed(() => stats.value?.memory_stats?.limit || 0)
+const memPercent = computed(() => {
+  if (!memLimit.value) return 0
+  return (memUsage.value / memLimit.value) * 100
 })
 
 function handleLogout() {
@@ -365,6 +435,68 @@ function getNetworks() {
   return Object.keys(containerData.value.NetworkSettings.Networks).join(', ')
 }
 
+// Rename functions
+function startRename() {
+  renaming.value = true
+  newName.value = containerName.value
+  nextTick(() => {
+    renameInput.value?.focus()
+  })
+}
+
+function cancelRename() {
+  renaming.value = false
+  newName.value = ''
+}
+
+async function confirmRename() {
+  if (!newName.value.trim()) {
+    showToast('Name cannot be empty', 'error')
+    return
+  }
+  renameLoading.value = true
+  try {
+    await containersStore.renameContainer(containerId.value, newName.value.trim())
+    showToast('Container renamed successfully', 'success')
+    renaming.value = false
+    await fetchContainer()
+  } catch (err) {
+    showToast('Failed to rename container', 'error')
+  } finally {
+    renameLoading.value = false
+  }
+}
+
+// Stats functions
+async function fetchStats() {
+  if (!containerData.value?.State?.Running) return
+  try {
+    stats.value = await containersStore.getStats(containerId.value)
+  } catch (err) {
+    // Silently fail on stats - non-critical
+  }
+}
+
+function startStatsPolling() {
+  fetchStats()
+  statsInterval.value = setInterval(fetchStats, 5000)
+}
+
+function stopStatsPolling() {
+  if (statsInterval.value) {
+    clearInterval(statsInterval.value)
+    statsInterval.value = null
+  }
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i]
+}
+
 function showToast(message, type = 'success') {
   toast.value = { show: true, message, type }
   setTimeout(() => {
@@ -373,7 +505,15 @@ function showToast(message, type = 'success') {
 }
 
 onMounted(() => {
-  fetchContainer()
+  fetchContainer().then(() => {
+    if (containerData.value?.State?.Running) {
+      startStatsPolling()
+    }
+  })
+})
+
+onUnmounted(() => {
+  stopStatsPolling()
 })
 </script>
 
@@ -597,5 +737,97 @@ onMounted(() => {
 .toast-error {
   border: 1px solid var(--reach-orange);
   color: var(--reach-orange);
+}
+
+.name-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.rename-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: var(--space-xs);
+  transition: color var(--transition-base);
+}
+
+.rename-btn:hover {
+  color: var(--reach-amber);
+}
+
+.rename-input {
+  padding: var(--space-xs) var(--space-sm);
+  background-color: var(--reach-slate);
+  border: 1px solid var(--reach-amber);
+  border-radius: var(--radius-sm);
+  color: var(--reach-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  width: 250px;
+}
+
+.rename-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(246, 166, 35, 0.2);
+}
+
+.stats-section {
+  padding: var(--space-lg);
+}
+
+.stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.stat-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--reach-slate);
+  border: 1px solid rgba(74, 85, 104, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stat-bar {
+  height: 100%;
+  background-color: var(--reach-amber);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.stat-bar-cyan {
+  background-color: var(--reach-cyan);
+}
+
+.stat-value {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+.stats-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
 }
 </style>

@@ -182,6 +182,98 @@ func (h *ContainerHandler) CreateContainer(w http.ResponseWriter, r *http.Reques
 	respondJSON(w, http.StatusCreated, response)
 }
 
+func (h *ContainerHandler) RenameContainer(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	containerID := vars["id"]
+
+	var req struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.dockerService.RenameContainer(r.Context(), containerID, req.Name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "renamed", "name": req.Name})
+}
+
+func (h *ContainerHandler) BulkStopContainers(w http.ResponseWriter, r *http.Request) {
+	containers, err := h.dockerService.ListContainers(r.Context(), false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	timeout := 10
+	stoppedCount := 0
+	var errors []string
+
+	for _, c := range containers {
+		if c.State == "running" {
+			if err := h.dockerService.StopContainer(r.Context(), c.ID, timeout); err != nil {
+				errors = append(errors, c.ID[:12]+": "+err.Error())
+			} else {
+				stoppedCount++
+			}
+		}
+	}
+
+	response := map[string]interface{}{
+		"stopped": stoppedCount,
+		"total":   len(containers),
+	}
+
+	if len(errors) > 0 {
+		response["errors"] = errors
+	}
+
+	respondJSON(w, http.StatusOK, response)
+}
+
+func (h *ContainerHandler) BulkRestartContainers(w http.ResponseWriter, r *http.Request) {
+	containers, err := h.dockerService.ListContainers(r.Context(), false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	timeout := 10
+	restartedCount := 0
+	var errors []string
+
+	for _, c := range containers {
+		if c.State == "running" {
+			if err := h.dockerService.RestartContainer(r.Context(), c.ID, timeout); err != nil {
+				errors = append(errors, c.ID[:12]+": "+err.Error())
+			} else {
+				restartedCount++
+			}
+		}
+	}
+
+	response := map[string]interface{}{
+		"restarted": restartedCount,
+		"total":     len(containers),
+	}
+
+	if len(errors) > 0 {
+		response["errors"] = errors
+	}
+
+	respondJSON(w, http.StatusOK, response)
+}
+
 func setRestartPolicyName(policy *container.RestartPolicy, name string) {
 	if policy == nil {
 		return

@@ -52,6 +52,64 @@ export const useImagesStore = defineStore('images', () => {
     }
   }
 
+  async function tagImage(id, repo, tag) {
+    try {
+      const response = await api.post(`/images/${encodeURIComponent(id)}/tag`, { repo, tag })
+      await fetchImages()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function inspectImage(id) {
+    try {
+      const response = await api.get(`/images/${encodeURIComponent(id)}`)
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function getImageHistory(id) {
+    try {
+      const response = await api.get(`/images/${encodeURIComponent(id)}/history`)
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function pruneImages() {
+    try {
+      const response = await api.post('/images/prune')
+      await fetchImages()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function buildImage(dockerfile, tags) {
+    try {
+      const formData = new FormData()
+      formData.append('dockerfile', dockerfile)
+      formData.append('tags', tags)
+      const response = await api.post('/images/build', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      await fetchImages()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
   return {
     images,
     loading,
@@ -59,6 +117,11 @@ export const useImagesStore = defineStore('images', () => {
     fetchImages,
     pullImage,
     removeImage,
-    searchImages
+    searchImages,
+    tagImage,
+    inspectImage,
+    getImageHistory,
+    pruneImages,
+    buildImage
   }
 })

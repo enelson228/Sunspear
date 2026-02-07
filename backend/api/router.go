@@ -39,22 +39,30 @@ func NewRouter(
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 
-	// Container routes
+	// Container routes (bulk routes before {id} routes)
 	api.HandleFunc("/containers", containerHandler.ListContainers).Methods("GET")
+	api.HandleFunc("/containers", containerHandler.CreateContainer).Methods("POST")
+	api.HandleFunc("/containers/bulk/stop", containerHandler.BulkStopContainers).Methods("POST")
+	api.HandleFunc("/containers/bulk/restart", containerHandler.BulkRestartContainers).Methods("POST")
 	api.HandleFunc("/containers/{id}", containerHandler.GetContainer).Methods("GET")
 	api.HandleFunc("/containers/{id}/start", containerHandler.StartContainer).Methods("POST")
 	api.HandleFunc("/containers/{id}/stop", containerHandler.StopContainer).Methods("POST")
 	api.HandleFunc("/containers/{id}/restart", containerHandler.RestartContainer).Methods("POST")
+	api.HandleFunc("/containers/{id}/rename", containerHandler.RenameContainer).Methods("POST")
 	api.HandleFunc("/containers/{id}/remove", containerHandler.RemoveContainer).Methods("DELETE")
 	api.HandleFunc("/containers/{id}/logs", containerHandler.GetLogs).Methods("GET")
 	api.HandleFunc("/containers/{id}/stats", containerHandler.GetStats).Methods("GET")
-	api.HandleFunc("/containers", containerHandler.CreateContainer).Methods("POST")
 
-	// Image routes
+	// Image routes (static routes before {id} routes)
 	api.HandleFunc("/images", imageHandler.ListImages).Methods("GET")
 	api.HandleFunc("/images/pull", imageHandler.PullImage).Methods("POST")
-	api.HandleFunc("/images/{id}/remove", imageHandler.RemoveImage).Methods("DELETE")
+	api.HandleFunc("/images/build", imageHandler.BuildImage).Methods("POST")
+	api.HandleFunc("/images/prune", imageHandler.PruneImages).Methods("POST")
 	api.HandleFunc("/images/search", imageHandler.SearchImages).Methods("GET")
+	api.HandleFunc("/images/{id}", imageHandler.InspectImage).Methods("GET")
+	api.HandleFunc("/images/{id}/tag", imageHandler.TagImage).Methods("POST")
+	api.HandleFunc("/images/{id}/history", imageHandler.GetImageHistory).Methods("GET")
+	api.HandleFunc("/images/{id}/remove", imageHandler.RemoveImage).Methods("DELETE")
 
 	// System routes
 	api.HandleFunc("/system/metrics", systemHandler.GetMetrics).Methods("GET")

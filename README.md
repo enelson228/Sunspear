@@ -201,19 +201,84 @@ Sunspear uses the **Halo Reach military HUD aesthetic** adapted from the Infinit
 
 ## Roadmap
 
-- [x] Foundation and architecture
-- [x] Backend API with Docker SDK
-- [x] Frontend with Vue 3 and Reach theme
-- [x] Authentication system
-- [x] System monitoring
-- [ ] Full container management UI
-- [ ] Log viewer with streaming
-- [ ] Container creation form
-- [ ] App marketplace implementation
-- [ ] Docker Compose template system
-- [ ] WebSocket for real-time updates
-- [ ] Volume and network management
-- [ ] Multi-container app deployments
+### Phase 1 - Foundation (complete)
+
+- [x] Go backend with Gorilla Mux routing and SQLite
+- [x] Docker SDK integration with API version negotiation
+- [x] Vue 3 SPA with Pinia state management and Vue Router
+- [x] Halo Reach HUD design system (scanlines, corner brackets, glass-morphism)
+- [x] JWT authentication with bcrypt password hashing
+- [x] First-run setup flow (create admin via `/api/auth/setup`)
+- [x] System monitoring (CPU, RAM, disk via gopsutil with polling)
+- [x] Docker Compose orchestration with Caddy reverse proxy and auto-HTTPS
+- [x] Health check endpoints and scripts
+
+### Phase 2 - Container Management (complete)
+
+- [x] Container list with filtering (all / running) and search
+- [x] Container detail view (general info, network, state, environment variables)
+- [x] Container actions (start, stop, restart, remove with confirmation)
+- [x] Container log viewer with tail and download
+- [x] Container creation form (image, name, ports, volumes, env vars, restart policy)
+- [x] Container resource stats display (CPU / memory usage per container)
+- [x] Bulk container actions (stop all, restart all)
+- [x] Container rename
+
+### Phase 3 - Image Management (complete)
+
+- [x] Image list view with details
+- [x] Pull images from registry
+- [x] Remove images
+- [x] Docker Hub search from App Store page
+- [x] Image tag management
+- [x] Image build from Dockerfile (paste content)
+- [x] Image layer inspection
+- [x] Prune unused images (with confirmation)
+
+### Phase 4 - Log Streaming and Real-Time Updates
+
+- [ ] WebSocket server in Go backend
+- [ ] Real-time container log streaming (replace polling with WebSocket)
+- [ ] Live container status updates via Docker event stream (`GetEvents` already in `docker.go`)
+- [ ] Dashboard auto-refresh without polling (WebSocket push for metrics)
+- [ ] Toast notifications for container state changes (started, stopped, crashed)
+
+### Phase 5 - App Marketplace
+
+- [ ] App installation backend (read compose template, substitute variables, deploy)
+- [ ] Installation wizard UI (configure env vars, ports, volumes before deploy)
+- [ ] Compose template engine (parse and execute `data/apps/compose-templates/*.yml`)
+- [ ] Installed apps tracking in SQLite
+- [ ] App update and uninstall workflows
+- [ ] Expand default app catalog (currently: Uptime Kuma, Jellyfin, Vaultwarden)
+- [ ] Community app catalog support (import from URL)
+
+### Phase 6 - Volume and Network Management
+
+- [ ] Volume list / create / remove API endpoints
+- [ ] Volume browser UI with size and mount info
+- [ ] Network list / create / remove API endpoints
+- [ ] Network inspector UI (connected containers, subnets, gateways)
+- [ ] Attach / detach containers from networks
+
+### Phase 7 - Multi-Container and Compose
+
+- [ ] Docker Compose file upload and deploy
+- [ ] Compose project view (group containers by project)
+- [ ] Compose project lifecycle (up / down / restart as a unit)
+- [ ] Compose file editor with syntax highlighting
+- [ ] Stack templates (predefined multi-service stacks)
+
+### Phase 8 - Polish and Hardening
+
+- [ ] Global navbar refactor (extract shared layout component)
+- [ ] Responsive mobile navigation (hamburger menu)
+- [ ] Settings page (change password, theme toggle, API URL config)
+- [ ] User management (multiple accounts, role-based access)
+- [ ] Rate limiting and request validation on API endpoints
+- [ ] Automated backup and restore for SQLite database
+- [ ] Error boundary and global error handling in frontend
+- [ ] Loading skeletons for all views
 
 ## Contributing
 

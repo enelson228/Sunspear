@@ -81,6 +81,59 @@ export const useContainersStore = defineStore('containers', () => {
     }
   }
 
+  async function getStats(id) {
+    try {
+      const response = await api.get(`/containers/${id}/stats`)
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function createContainer(config) {
+    try {
+      const response = await api.post('/containers', config)
+      await fetchContainers()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function renameContainer(id, name) {
+    try {
+      const response = await api.post(`/containers/${id}/rename`, { name })
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function bulkStopContainers() {
+    try {
+      const response = await api.post('/containers/bulk/stop')
+      await fetchContainers()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function bulkRestartContainers() {
+    try {
+      const response = await api.post('/containers/bulk/restart')
+      await fetchContainers()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
   return {
     containers,
     loading,
@@ -91,6 +144,11 @@ export const useContainersStore = defineStore('containers', () => {
     stopContainer,
     restartContainer,
     removeContainer,
-    getLogs
+    getLogs,
+    getStats,
+    createContainer,
+    renameContainer,
+    bulkStopContainers,
+    bulkRestartContainers
   }
 })

@@ -27,6 +27,12 @@
             <p class="subtitle">Manage and monitor Docker containers</p>
           </div>
           <div class="header-actions">
+            <Button variant="secondary" @click="showBulkStopModal = true">
+              STOP ALL
+            </Button>
+            <Button variant="secondary" @click="showBulkRestartModal = true">
+              RESTART ALL
+            </Button>
             <Button variant="primary" @click="fetchContainers" :loading="loading">
               {{ loading ? 'REFRESHING...' : 'REFRESH' }}
             </Button>
@@ -115,13 +121,108 @@
       </template>
     </Modal>
 
-    <!-- Create Container Modal (placeholder) -->
+    <!-- Create Container Modal -->
     <Modal v-model="showCreateModal" title="CREATE CONTAINER">
-      <p class="text-secondary">Container creation form coming soon...</p>
+      <div class="create-form">
+        <Input
+          v-model="createForm.image"
+          label="IMAGE *"
+          placeholder="nginx:latest"
+          type="text"
+        />
+        <Input
+          v-model="createForm.name"
+          label="CONTAINER NAME"
+          placeholder="my-container"
+          type="text"
+        />
+
+        <div class="form-section">
+          <div class="form-section-header">
+            <label class="label">PORT MAPPINGS</label>
+            <Button variant="secondary" size="sm" @click="addPort">+ ADD PORT</Button>
+          </div>
+          <div v-for="(port, index) in createForm.ports" :key="'port-'+index" class="dynamic-row">
+            <Input v-model="port.host" placeholder="Host port" type="text" />
+            <span class="row-separator">:</span>
+            <Input v-model="port.container" placeholder="Container port" type="text" />
+            <Button variant="danger" size="sm" @click="createForm.ports.splice(index, 1)">X</Button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-header">
+            <label class="label">VOLUME MOUNTS</label>
+            <Button variant="secondary" size="sm" @click="addVolume">+ ADD VOLUME</Button>
+          </div>
+          <div v-for="(vol, index) in createForm.volumes" :key="'vol-'+index" class="dynamic-row">
+            <Input v-model="vol.host" placeholder="Host path" type="text" />
+            <span class="row-separator">:</span>
+            <Input v-model="vol.container" placeholder="Container path" type="text" />
+            <Button variant="danger" size="sm" @click="createForm.volumes.splice(index, 1)">X</Button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-header">
+            <label class="label">ENVIRONMENT VARIABLES</label>
+            <Button variant="secondary" size="sm" @click="addEnv">+ ADD ENV</Button>
+          </div>
+          <div v-for="(env, index) in createForm.envVars" :key="'env-'+index" class="dynamic-row">
+            <Input v-model="env.key" placeholder="KEY" type="text" />
+            <span class="row-separator">=</span>
+            <Input v-model="env.value" placeholder="VALUE" type="text" />
+            <Button variant="danger" size="sm" @click="createForm.envVars.splice(index, 1)">X</Button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <label class="label">RESTART POLICY</label>
+          <select v-model="createForm.restartPolicy" class="select-input">
+            <option value="">No restart</option>
+            <option value="always">Always</option>
+            <option value="unless-stopped">Unless stopped</option>
+            <option value="on-failure">On failure</option>
+          </select>
+        </div>
+      </div>
 
       <template #footer>
-        <Button variant="secondary" @click="showCreateModal = false">
-          CLOSE
+        <Button variant="secondary" @click="closeCreateModal">
+          CANCEL
+        </Button>
+        <Button variant="primary" @click="handleCreate" :loading="creating">
+          {{ creating ? 'CREATING...' : 'CREATE CONTAINER' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Bulk Stop Modal -->
+    <Modal v-model="showBulkStopModal" title="CONFIRM STOP ALL">
+      <p>Are you sure you want to stop all running containers?</p>
+      <p class="text-secondary mt-sm">This will stop {{ runningCount }} running container(s).</p>
+
+      <template #footer>
+        <Button variant="secondary" @click="showBulkStopModal = false">
+          CANCEL
+        </Button>
+        <Button variant="danger" @click="handleBulkStop" :loading="bulkLoading">
+          {{ bulkLoading ? 'STOPPING...' : 'STOP ALL' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Bulk Restart Modal -->
+    <Modal v-model="showBulkRestartModal" title="CONFIRM RESTART ALL">
+      <p>Are you sure you want to restart all running containers?</p>
+      <p class="text-secondary mt-sm">This will restart {{ runningCount }} running container(s).</p>
+
+      <template #footer>
+        <Button variant="secondary" @click="showBulkRestartModal = false">
+          CANCEL
+        </Button>
+        <Button variant="danger" @click="handleBulkRestart" :loading="bulkLoading">
+          {{ bulkLoading ? 'RESTARTING...' : 'RESTART ALL' }}
         </Button>
       </template>
     </Modal>
@@ -152,8 +253,20 @@ const searchQuery = ref('')
 const actionLoading = ref(null)
 const showRemoveModal = ref(false)
 const showCreateModal = ref(false)
+const showBulkStopModal = ref(false)
+const showBulkRestartModal = ref(false)
 const containerToRemove = ref(null)
+const creating = ref(false)
+const bulkLoading = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
+const createForm = ref({
+  image: '',
+  name: '',
+  ports: [],
+  volumes: [],
+  envVars: [],
+  restartPolicy: ''
+})
 
 const containers = computed(() => containersStore.containers)
 const loading = computed(() => containersStore.loading)
@@ -252,6 +365,92 @@ async function confirmRemove() {
   } finally {
     actionLoading.value = null
     containerToRemove.value = null
+  }
+}
+
+function addPort() {
+  createForm.value.ports.push({ host: '', container: '' })
+}
+
+function addVolume() {
+  createForm.value.volumes.push({ host: '', container: '' })
+}
+
+function addEnv() {
+  createForm.value.envVars.push({ key: '', value: '' })
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false
+  createForm.value = { image: '', name: '', ports: [], volumes: [], envVars: [], restartPolicy: '' }
+}
+
+async function handleCreate() {
+  if (!createForm.value.image) {
+    showToast('Image name is required', 'error')
+    return
+  }
+
+  creating.value = true
+  try {
+    const ports = {}
+    createForm.value.ports.forEach(p => {
+      if (p.host && p.container) {
+        ports[p.container + '/tcp'] = p.host
+      }
+    })
+
+    const volumes = {}
+    createForm.value.volumes.forEach(v => {
+      if (v.host && v.container) {
+        volumes[v.host] = v.container
+      }
+    })
+
+    const env = createForm.value.envVars
+      .filter(e => e.key)
+      .map(e => `${e.key}=${e.value}`)
+
+    await containersStore.createContainer({
+      image: createForm.value.image,
+      name: createForm.value.name,
+      ports,
+      volumes,
+      env,
+      restartPolicy: createForm.value.restartPolicy
+    })
+    showToast('Container created successfully', 'success')
+    closeCreateModal()
+  } catch (err) {
+    showToast('Failed to create container', 'error')
+  } finally {
+    creating.value = false
+  }
+}
+
+async function handleBulkStop() {
+  bulkLoading.value = true
+  try {
+    const result = await containersStore.bulkStopContainers()
+    showToast(`Stopped ${result.stopped} container(s)`, 'success')
+    showBulkStopModal.value = false
+  } catch (err) {
+    showToast('Failed to stop containers', 'error')
+  } finally {
+    bulkLoading.value = false
+  }
+}
+
+async function handleBulkRestart() {
+  bulkLoading.value = true
+  try {
+    const result = await containersStore.bulkRestartContainers()
+    showToast(`Restarted ${result.restarted} container(s)`, 'success')
+    showBulkRestartModal.value = false
+  } catch (err) {
+    showToast('Failed to restart containers', 'error')
+  } finally {
+    bulkLoading.value = false
   }
 }
 
@@ -443,6 +642,58 @@ onMounted(() => {
 .toast-error {
   border: 1px solid var(--reach-orange);
   color: var(--reach-orange);
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.form-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dynamic-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dynamic-row .input-wrapper {
+  flex: 1;
+}
+
+.row-separator {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.select-input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--reach-slate);
+  border: 1px solid rgba(74, 85, 104, 0.5);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: var(--reach-amber);
+  box-shadow: 0 0 0 2px rgba(246, 166, 35, 0.2);
 }
 
 @media (max-width: 768px) {
