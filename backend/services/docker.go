@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 )
@@ -117,7 +118,7 @@ func (s *DockerService) InspectImage(ctx context.Context, imageID string) (types
 	return inspect, err
 }
 
-func (s *DockerService) GetImageHistory(ctx context.Context, imageID string) ([]types.ImageHistory, error) {
+func (s *DockerService) GetImageHistory(ctx context.Context, imageID string) ([]image.HistoryResponseItem, error) {
 	return s.client.ImageHistory(ctx, imageID)
 }
 
