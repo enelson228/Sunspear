@@ -162,7 +162,7 @@ func (s *DockerService) GetEvents(ctx context.Context) (<-chan events.Message, <
 // Volume operations
 
 func (s *DockerService) ListVolumes(ctx context.Context) ([]*volume.Volume, error) {
-	resp, err := s.client.VolumeList(ctx, volume.ListOptions{})
+	resp, err := s.client.VolumeList(ctx, filters.NewArgs())
 	if err != nil {
 		return nil, err
 	}
