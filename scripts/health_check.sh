@@ -22,6 +22,6 @@ check() {
 }
 
 check "frontend" "$BASE_URL/" "200"
-check "backend health" "$BASE_URL/api/health" "200"
+check "backend health" "$BASE_URL/health" "200"
 
 printf "All checks passed.\n"

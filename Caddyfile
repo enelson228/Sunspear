@@ -5,6 +5,9 @@ www.{$PUBLIC_DOMAIN} {
 {$PUBLIC_DOMAIN} {
   encode zstd gzip
 
+  @health path /health
+  reverse_proxy @health http://backend:8080
+
   @api path /api/*
   reverse_proxy @api http://backend:8080
 
