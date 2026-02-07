@@ -63,6 +63,7 @@ ADMIN_PASSWORD_HASH=your-bcrypt-hash
 ```
 
 If you want to change the domain, update `PUBLIC_DOMAIN` and `Caddyfile`.
+`ADMIN_PASSWORD_HASH` is optional if you plan to create the first user via `/api/auth/setup`.
 
 ### 3. Build and start
 
@@ -196,7 +197,7 @@ Sunspear uses the **Halo Reach military HUD aesthetic** adapted from the Infinit
 - Docker socket access limited to backend container
 - No default credentials
 
-**Important:** Set `JWT_SECRET` and `ADMIN_PASSWORD_HASH` in production.
+**Important:** Set `JWT_SECRET` in production. `ADMIN_PASSWORD_HASH` is optional if you use the setup endpoint to create the first user.
 
 ## Roadmap
 

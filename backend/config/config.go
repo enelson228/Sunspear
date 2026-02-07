@@ -25,9 +25,6 @@ func (c *Config) Validate() error {
 	if c.JWTSecret == "" || c.JWTSecret == "change-me-in-production" {
 		return fmt.Errorf("JWT_SECRET must be set to a strong, non-default value")
 	}
-	if c.AdminPasswordHash == "" {
-		return fmt.Errorf("ADMIN_PASSWORD_HASH must be set")
-	}
 	if c.FrontendURL == "" {
 		return fmt.Errorf("FRONTEND_URL must be set")
 	}
