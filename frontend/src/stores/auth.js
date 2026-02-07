@@ -28,6 +28,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function checkSetupRequired() {
+    try {
+      const response = await api.get('/auth/setup/status')
+      return !!response.data?.needs_setup
+    } catch (error) {
+      console.error('Setup status check failed:', error)
+      return false
+    }
+  }
+
   function logout() {
     token.value = null
     localStorage.removeItem('token')
@@ -42,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     setup,
+    checkSetupRequired,
     logout,
     getToken
   }

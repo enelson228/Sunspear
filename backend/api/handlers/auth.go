@@ -108,6 +108,18 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *AuthHandler) SetupStatus(w http.ResponseWriter, r *http.Request) {
+	var count int
+	if err := h.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]bool{
+		"needs_setup": count == 0,
+	})
+}
+
 func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	// If we reach here, the auth middleware has already validated the token
 	respondJSON(w, http.StatusOK, map[string]bool{

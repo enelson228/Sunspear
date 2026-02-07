@@ -9,6 +9,10 @@
         <p class="subtitle">Docker Management System</p>
       </div>
 
+      <div v-if="setupRequired" class="setup-banner">
+        FIRST-TIME SETUP REQUIRED
+      </div>
+
       <form @submit.prevent="handleSubmit" class="login-form">
         <Input
           v-model="username"
@@ -64,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Input from '@/components/ui/Input.vue'
@@ -79,6 +83,14 @@ const confirmPassword = ref('')
 const loading = ref(false)
 const error = ref('')
 const mode = ref('login')
+const setupRequired = ref(false)
+
+async function checkSetup() {
+  setupRequired.value = await authStore.checkSetupRequired()
+  if (setupRequired.value) {
+    mode.value = 'setup'
+  }
+}
 
 function toggleMode() {
   error.value = ''
@@ -113,6 +125,10 @@ async function handleSubmit() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  checkSetup()
+})
 </script>
 
 <style scoped>
@@ -177,6 +193,19 @@ async function handleSubmit() {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+}
+
+.setup-banner {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.12);
+  border-radius: var(--radius-sm);
+  color: var(--reach-cyan);
+  font-family: var(--font-mono);
+  text-align: center;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
 }
 
 .error-message {

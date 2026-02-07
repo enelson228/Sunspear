@@ -32,6 +32,7 @@ func NewRouter(
 	r.HandleFunc("/health", healthCheck).Methods("GET")
 	r.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST")
 	r.HandleFunc("/api/auth/setup", authHandler.Setup).Methods("POST")
+	r.HandleFunc("/api/auth/setup/status", authHandler.SetupStatus).Methods("GET")
 	r.HandleFunc("/api/auth/verify", authHandler.Verify).Methods("GET")
 
 	// Protected routes
