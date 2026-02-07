@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sunspear/api/middleware"
 	"sunspear/config"
 	"time"
 
@@ -124,5 +125,21 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	// If we reach here, the auth middleware has already validated the token
 	respondJSON(w, http.StatusOK, map[string]bool{
 		"valid": true,
+	})
+}
+
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(int)
+
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"id":       userID,
+		"username": username,
 	})
 }

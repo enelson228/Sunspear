@@ -67,6 +67,12 @@ const routes = [
     name: 'System',
     component: () => import('@/views/System.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/Settings.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

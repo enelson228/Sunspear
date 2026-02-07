@@ -32,6 +32,7 @@ func NewRouter(
 	volumeHandler := handlers.NewVolumeHandler(dockerService)
 	networkHandler := handlers.NewNetworkHandler(dockerService)
 	composeHandler := handlers.NewComposeHandler(composeService)
+	settingsHandler := handlers.NewSettingsHandler(cfg, db)
 
 	// Public routes
 	r.HandleFunc("/health", healthCheck).Methods("GET")
@@ -114,6 +115,19 @@ func NewRouter(
 	api.HandleFunc("/compose/projects/{id}/start", composeHandler.StartProject).Methods("POST")
 	api.HandleFunc("/compose/projects/{id}/stop", composeHandler.StopProject).Methods("POST")
 	api.HandleFunc("/compose/projects/{id}/restart", composeHandler.RestartProject).Methods("POST")
+
+	// Auth info routes
+	api.HandleFunc("/auth/me", authHandler.Me).Methods("GET")
+
+	// Settings routes
+	api.HandleFunc("/settings", settingsHandler.GetSettings).Methods("GET")
+	api.HandleFunc("/settings", settingsHandler.UpdateSettings).Methods("PUT")
+
+	// User management routes
+	api.HandleFunc("/users", settingsHandler.ListUsers).Methods("GET")
+	api.HandleFunc("/users", settingsHandler.CreateUser).Methods("POST")
+	api.HandleFunc("/users/{id}", settingsHandler.DeleteUser).Methods("DELETE")
+	api.HandleFunc("/users/{id}/password", settingsHandler.ChangePassword).Methods("PUT")
 
 	// CORS configuration
 	c := cors.New(cors.Options{

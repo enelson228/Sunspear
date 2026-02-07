@@ -1,6 +1,9 @@
 <template>
   <div id="app" class="reach-theme">
-    <router-view />
+    <AppNavbar v-if="showNavbar" />
+    <main class="app-main" :class="{ 'has-navbar': showNavbar }">
+      <router-view />
+    </main>
 
     <!-- Container event toasts -->
     <div class="toast-container">
@@ -17,10 +20,14 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/composables/useWebSocket'
+import AppNavbar from '@/components/layout/AppNavbar.vue'
 
+const route = useRoute()
 const authStore = useAuthStore()
+const showNavbar = computed(() => authStore.isAuthenticated && route.path !== '/login')
 const toasts = ref([])
 let toastIdCounter = 0
 
@@ -82,6 +89,10 @@ function showContainerEvent(event) {
   min-height: 100vh;
   background-color: var(--reach-slate);
   color: var(--text-primary);
+}
+
+.app-main.has-navbar {
+  padding-top: 100px;
 }
 
 .toast-container {

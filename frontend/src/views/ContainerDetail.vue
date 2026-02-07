@@ -1,27 +1,5 @@
 <template>
   <div class="container-detail-page">
-    <nav class="navbar glass">
-      <div class="container">
-        <div class="navbar-content">
-          <div class="logo-section">
-            <div class="logo-icon">◆</div>
-            <span class="logo-text">SUNSPEAR</span>
-          </div>
-          <div class="nav-links">
-            <router-link to="/" class="nav-link">Dashboard</router-link>
-            <router-link to="/containers" class="nav-link">Containers</router-link>
-            <router-link to="/images" class="nav-link">Images</router-link>
-            <router-link to="/volumes" class="nav-link">Volumes</router-link>
-            <router-link to="/networks" class="nav-link">Networks</router-link>
-            <router-link to="/compose" class="nav-link">Compose</router-link>
-            <router-link to="/apps" class="nav-link">App Store</router-link>
-            <router-link to="/system" class="nav-link">System</router-link>
-          </div>
-          <Button variant="secondary" @click="handleLogout">LOGOUT</Button>
-        </div>
-      </div>
-    </nav>
-
     <main class="detail-main">
       <div class="container">
         <div class="page-header">
@@ -254,7 +232,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { useContainersStore } from '@/stores/containers'
 import Card from '@/components/ui/Card.vue'
 import Badge from '@/components/ui/Badge.vue'
@@ -265,7 +242,6 @@ import dayjs from 'dayjs'
 
 const router = useRouter()
 const route = useRoute()
-const authStore = useAuthStore()
 const containersStore = useContainersStore()
 
 const containerData = ref(null)
@@ -317,11 +293,6 @@ const memPercent = computed(() => {
   if (!memLimit.value) return 0
   return (memUsage.value / memLimit.value) * 100
 })
-
-function handleLogout() {
-  authStore.logout()
-  router.push('/login')
-}
 
 async function fetchContainer() {
   loading.value = true
@@ -526,77 +497,8 @@ onUnmounted(() => {
   min-height: 100vh;
 }
 
-.navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  height: 64px;
-  border-bottom: 1px solid rgba(74, 85, 104, 0.3);
-}
-
-.navbar-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-}
-
-.logo-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.logo-icon {
-  color: var(--reach-amber);
-  font-size: 1.5rem;
-}
-
-.logo-text {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--reach-amber);
-}
-
-.nav-links {
-  display: flex;
-  gap: var(--space-xl);
-}
-
-.nav-link {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  transition: color var(--transition-base);
-  position: relative;
-}
-
-.nav-link:hover {
-  color: var(--reach-amber);
-}
-
-.nav-link.router-link-active {
-  color: var(--reach-amber);
-}
-
-.nav-link.router-link-active::after {
-  content: '';
-  position: absolute;
-  bottom: -20px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: var(--reach-amber);
-}
-
 .detail-main {
-  padding-top: 100px;
+  padding-top: var(--space-2xl);
   padding-bottom: var(--space-3xl);
 }
 
