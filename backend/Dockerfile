@@ -6,12 +6,15 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
-# Copy go mod files
+# Copy go mod files and download cached dependencies
 COPY go.mod go.sum ./
-RUN go mod download || true && go mod tidy
+RUN go mod download || true
 
 # Copy source code
 COPY . .
+
+# Resolve any missing go.sum entries (handles stale go.sum without local Go)
+RUN go mod tidy
 
 # Build the application
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o sunspear .
