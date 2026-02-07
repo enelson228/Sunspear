@@ -9,7 +9,7 @@
         <p class="subtitle">Docker Management System</p>
       </div>
 
-      <form @submit.prevent="handleLogin" class="login-form">
+      <form @submit.prevent="handleSubmit" class="login-form">
         <Input
           v-model="username"
           label="USERNAME"
@@ -26,6 +26,15 @@
           :disabled="loading"
         />
 
+        <Input
+          v-if="mode === 'setup'"
+          v-model="confirmPassword"
+          label="CONFIRM PASSWORD"
+          type="password"
+          placeholder="Re-enter password"
+          :disabled="loading"
+        />
+
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
@@ -37,7 +46,17 @@
           :show-accent="true"
           class="w-full mt-lg"
         >
-          {{ loading ? 'AUTHENTICATING...' : 'LOGIN' }}
+          {{ loading ? (mode === 'setup' ? 'CREATING...' : 'AUTHENTICATING...') : (mode === 'setup' ? 'CREATE ADMIN' : 'LOGIN') }}
+        </Button>
+
+        <Button
+          type="button"
+          variant="secondary"
+          :disabled="loading"
+          class="w-full"
+          @click="toggleMode"
+        >
+          {{ mode === 'setup' ? 'Back to Login' : 'First time? Create Admin' }}
         </Button>
       </form>
     </div>
@@ -56,18 +75,40 @@ const authStore = useAuthStore()
 
 const username = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const loading = ref(false)
 const error = ref('')
+const mode = ref('login')
 
-async function handleLogin() {
+function toggleMode() {
   error.value = ''
-  loading.value = true
+  mode.value = mode.value === 'login' ? 'setup' : 'login'
+}
 
+async function handleSubmit() {
   try {
-    await authStore.login(username.value, password.value)
+    if (mode.value === 'setup') {
+      if (password.value !== confirmPassword.value) {
+        error.value = 'Passwords do not match.'
+        return
+      }
+    }
+
+    error.value = ''
+    loading.value = true
+
+    if (mode.value === 'setup') {
+      await authStore.setup(username.value, password.value)
+    } else {
+      await authStore.login(username.value, password.value)
+    }
     router.push('/')
   } catch (err) {
-    error.value = 'Invalid credentials. Please try again.'
+    if (mode.value === 'setup') {
+      error.value = 'Setup failed. It may already be completed.'
+    } else {
+      error.value = 'Invalid credentials. Please try again.'
+    }
   } finally {
     loading.value = false
   }
