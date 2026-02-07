@@ -1,0 +1,12 @@
+www.mjolnirarmory.com {
+  redir https://mjolnirarmory.com{uri} permanent
+}
+
+mjolnirarmory.com {
+  encode zstd gzip
+
+  @api path /api/*
+  reverse_proxy @api http://backend:8080
+
+  reverse_proxy http://frontend:80
+}

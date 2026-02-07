@@ -2,8 +2,6 @@ services:
   backend:
     build: ./backend
     container_name: sunspear-backend
-    ports:
-      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./backend/data:/app/data
@@ -11,7 +9,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
       - PORT=8080
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=https://mjolnirarmory.com
     restart: unless-stopped
     networks:
       - sunspear-net
@@ -22,13 +20,29 @@ services:
       retries: 3
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://mjolnirarmory.com/api
     container_name: sunspear-frontend
-    ports:
-      - "3000:80"
-    environment:
-      - VITE_API_URL=http://localhost:8080
     depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - sunspear-net
+
+  caddy:
+    image: caddy:2
+    container_name: sunspear-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
       - backend
     restart: unless-stopped
     networks:
@@ -40,3 +54,5 @@ networks:
 
 volumes:
   backend-data:
+  caddy-data:
+  caddy-config:
