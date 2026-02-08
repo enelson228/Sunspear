@@ -20,6 +20,12 @@ www.{$PUBLIC_DOMAIN} {
     }
   }
 
+  @ollama path /ollama /ollama/*
+  handle @ollama {
+    uri strip_prefix /ollama
+    reverse_proxy http://ollama:11434
+  }
+
   @api path /api/*
   handle @api {
     reverse_proxy http://backend:8080
