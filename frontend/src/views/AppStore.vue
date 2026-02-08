@@ -130,24 +130,24 @@
           </div>
 
           <div v-else class="results-grid">
-            <div v-for="result in results" :key="result.Name" class="result-card hud-corners">
+            <div v-for="result in results" :key="result.name" class="result-card hud-corners">
               <div class="result-header">
                 <div>
-                  <h3>{{ result.Name }}</h3>
-                  <p class="text-secondary">{{ result.Description || 'No description available.' }}</p>
+                  <h3>{{ result.name }}</h3>
+                  <p class="text-secondary">{{ result.description || 'No description available.' }}</p>
                 </div>
                 <div class="badges">
-                  <span v-if="result.IsOfficial" class="badge badge-official">OFFICIAL</span>
-                  <span v-if="result.IsAutomated" class="badge badge-automated">AUTOMATED</span>
+                  <span v-if="result.isOfficial" class="badge badge-official">OFFICIAL</span>
+                  <span v-if="result.isAutomated" class="badge badge-automated">AUTOMATED</span>
                 </div>
               </div>
 
               <div class="result-meta">
-                <span class="meta-item">⭐ {{ result.StarCount || 0 }}</span>
+                <span class="meta-item">⭐ {{ result.starCount || 0 }}</span>
               </div>
 
               <div class="result-actions">
-                <Button variant="primary" @click="openPull(result.Name)">
+                <Button variant="primary" @click="openPull(result.name)">
                   PULL IMAGE
                 </Button>
               </div>
@@ -328,7 +328,14 @@ async function handleSearch() {
   searchError.value = ''
   searching.value = true
   try {
-    results.value = await imagesStore.searchImages(searchTerm.value.trim())
+    const raw = await imagesStore.searchImages(searchTerm.value.trim())
+    results.value = (raw || []).map((item) => ({
+      name: item.name || item.Name || '',
+      description: item.description || item.Description || '',
+      starCount: item.star_count ?? item.StarCount ?? 0,
+      isOfficial: item.is_official ?? item.IsOfficial ?? false,
+      isAutomated: item.is_automated ?? item.IsAutomated ?? false
+    })).filter(r => r.name)
   } catch (err) {
     searchError.value = 'Search failed. Please try again.'
   } finally {
