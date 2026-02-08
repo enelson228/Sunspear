@@ -4,7 +4,7 @@ import router from '@/router'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
-  timeout: 30000,
+  timeout: 600000,
   headers: {
     'Content-Type': 'application/json'
   }

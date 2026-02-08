@@ -359,7 +359,19 @@ func (s *ComposeService) ListTemplates() ([]StackTemplate, error) {
 
 // GetTemplate returns a specific template
 func (s *ComposeService) GetTemplate(name string) (*StackTemplate, error) {
+	// Sanitize name to prevent path traversal
+	if strings.ContainsAny(name, "/\\..") || name != filepath.Base(name) {
+		return nil, fmt.Errorf("invalid template name")
+	}
 	filePath := filepath.Join("./data/apps/compose-templates", name+".yml")
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid template path")
+	}
+	templatesDir, _ := filepath.Abs("./data/apps/compose-templates")
+	if !strings.HasPrefix(absPath, templatesDir) {
+		return nil, fmt.Errorf("invalid template name")
+	}
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("template not found: %w", err)

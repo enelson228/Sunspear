@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -129,6 +130,15 @@ func (h *WSHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 			if n > 0 {
 				// Docker log stream has 8-byte header per frame, strip it
 				content := buf[:n]
+				if n >= 8 {
+					// Parse Docker multiplexing header: 1 byte stream type, 3 padding, 4 byte big-endian size
+					frameSize := int(binary.BigEndian.Uint32(content[4:8]))
+					if frameSize > 0 && 8+frameSize <= n {
+						content = content[8 : 8+frameSize]
+					} else if n > 8 {
+						content = content[8:]
+					}
+				}
 				msg := map[string]interface{}{
 					"type": "log",
 					"data": string(content),

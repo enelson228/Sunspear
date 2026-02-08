@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"sunspear/services"
 
@@ -140,12 +141,12 @@ func (h *AppHandler) InstallApp(w http.ResponseWriter, r *http.Request) {
 		ExposedPorts: exposedPorts,
 	}
 
+	restartPolicy := container.RestartPolicy{}
+	setAppRestartPolicyName(&restartPolicy, "unless-stopped")
 	hostConfig := &container.HostConfig{
-		PortBindings: portBindings,
-		Binds:        binds,
-		RestartPolicy: container.RestartPolicy{
-			Name: "unless-stopped",
-		},
+		PortBindings:  portBindings,
+		Binds:         binds,
+		RestartPolicy: restartPolicy,
 	}
 
 	createResp, err := h.dockerService.CreateContainer(r.Context(), containerConfig, hostConfig, containerName)
@@ -247,4 +248,15 @@ func (h *AppHandler) UninstallApp(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{
 		"status": "App uninstalled successfully",
 	})
+}
+
+func setAppRestartPolicyName(policy *container.RestartPolicy, name string) {
+	if policy == nil {
+		return
+	}
+	policyValue := reflect.ValueOf(policy).Elem()
+	nameField := policyValue.FieldByName("Name")
+	if nameField.IsValid() && nameField.CanSet() && nameField.Kind() == reflect.String {
+		nameField.SetString(name)
+	}
 }

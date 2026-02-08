@@ -2,13 +2,16 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"sunspear/services"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-connections/nat"
 	"github.com/gorilla/mux"
 )
 
@@ -159,12 +162,42 @@ func (h *ContainerHandler) CreateContainer(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	config := &container.Config{
-		Image: req.Image,
-		Env:   req.Env,
+	// Prepare port bindings
+	exposedPorts := nat.PortSet{}
+	portBindings := nat.PortMap{}
+	for containerPort, hostPort := range req.Ports {
+		if hostPort == "" {
+			continue
+		}
+		portStr := containerPort
+		if !strings.Contains(portStr, "/") {
+			portStr = portStr + "/tcp"
+		}
+		port := nat.Port(portStr)
+		exposedPorts[port] = struct{}{}
+		portBindings[port] = []nat.PortBinding{
+			{HostIP: "0.0.0.0", HostPort: hostPort},
+		}
 	}
 
-	hostConfig := &container.HostConfig{}
+	// Prepare volume binds
+	var binds []string
+	for containerPath, hostPath := range req.Volumes {
+		if hostPath != "" {
+			binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPath))
+		}
+	}
+
+	config := &container.Config{
+		Image:        req.Image,
+		Env:          req.Env,
+		ExposedPorts: exposedPorts,
+	}
+
+	hostConfig := &container.HostConfig{
+		PortBindings: portBindings,
+		Binds:        binds,
+	}
 
 	// Configure restart policy
 	if req.RestartPolicy != "" {

@@ -50,6 +50,7 @@ func createTables(db *sql.DB) error {
 		app_name TEXT NOT NULL,
 		container_ids TEXT NOT NULL,
 		config TEXT,
+		status TEXT DEFAULT 'unknown',
 		installed_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 

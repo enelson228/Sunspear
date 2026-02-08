@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 	"sunspear/api/handlers"
 	"sunspear/api/middleware"
 	"sunspear/config"
@@ -39,7 +40,6 @@ func NewRouter(
 	r.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST")
 	r.HandleFunc("/api/auth/setup", authHandler.Setup).Methods("POST")
 	r.HandleFunc("/api/auth/setup/status", authHandler.SetupStatus).Methods("GET")
-	r.HandleFunc("/api/auth/verify", authHandler.Verify).Methods("GET")
 
 	// Protected routes
 	api := r.PathPrefix("/api").Subrouter()
@@ -117,6 +117,7 @@ func NewRouter(
 	api.HandleFunc("/compose/projects/{id}/restart", composeHandler.RestartProject).Methods("POST")
 
 	// Auth info routes
+	api.HandleFunc("/auth/verify", authHandler.Verify).Methods("GET")
 	api.HandleFunc("/auth/me", authHandler.Me).Methods("GET")
 
 	// Settings routes
@@ -129,9 +130,13 @@ func NewRouter(
 	api.HandleFunc("/users/{id}", settingsHandler.DeleteUser).Methods("DELETE")
 	api.HandleFunc("/users/{id}/password", settingsHandler.ChangePassword).Methods("PUT")
 
-	// CORS configuration
+	// CORS configuration — support comma-separated origins
+	allowedOrigins := strings.Split(cfg.FrontendURL, ",")
+	for i := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+	}
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{cfg.FrontendURL},
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,

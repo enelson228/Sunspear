@@ -216,19 +216,17 @@ func (h *SettingsHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// If user is changing their own password, verify current password
-	if requestingID == targetID {
-		var passwordHash string
-		err := h.db.QueryRow("SELECT password_hash FROM users WHERE id = ?", targetID).Scan(&passwordHash)
-		if err != nil {
-			http.Error(w, "User not found", http.StatusNotFound)
-			return
-		}
+	// Always verify current password (own or other user's password change)
+	var passwordHash string
+	err = h.db.QueryRow("SELECT password_hash FROM users WHERE id = ?", requestingID).Scan(&passwordHash)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
 
-		if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.CurrentPassword)); err != nil {
-			http.Error(w, "Current password is incorrect", http.StatusUnauthorized)
-			return
-		}
+	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.CurrentPassword)); err != nil {
+		http.Error(w, "Current password is incorrect", http.StatusUnauthorized)
+		return
 	}
 
 	// Hash new password

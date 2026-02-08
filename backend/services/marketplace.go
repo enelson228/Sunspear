@@ -104,7 +104,7 @@ func (s *MarketplaceService) InstallApp(appID string, containerIDs []string, con
 	}
 
 	result, err := s.db.Exec(
-		"INSERT INTO installed_apps (app_id, app_name, container_ids, config) VALUES (?, ?, ?, ?)",
+		"INSERT INTO installed_apps (app_id, app_name, container_ids, config, status) VALUES (?, ?, ?, ?, 'running')",
 		appID, appName, string(idsJSON), string(configJSON),
 	)
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *MarketplaceService) InstallApp(appID string, containerIDs []string, con
 }
 
 func (s *MarketplaceService) GetInstalledApps() ([]InstalledApp, error) {
-	rows, err := s.db.Query("SELECT id, app_id, app_name, container_ids, config, installed_at FROM installed_apps")
+	rows, err := s.db.Query("SELECT id, app_id, app_name, container_ids, config, status, installed_at FROM installed_apps")
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (s *MarketplaceService) GetInstalledApps() ([]InstalledApp, error) {
 	var apps []InstalledApp
 	for rows.Next() {
 		var app InstalledApp
-		if err := rows.Scan(&app.ID, &app.AppID, &app.AppName, &app.ContainerIDs, &app.Config, &app.InstalledAt); err != nil {
+		if err := rows.Scan(&app.ID, &app.AppID, &app.AppName, &app.ContainerIDs, &app.Config, &app.Status, &app.InstalledAt); err != nil {
 			continue
 		}
 		apps = append(apps, app)
@@ -145,8 +145,8 @@ func (s *MarketplaceService) GetInstalledApps() ([]InstalledApp, error) {
 
 func (s *MarketplaceService) GetInstalledApp(id int) (*InstalledApp, error) {
 	var app InstalledApp
-	err := s.db.QueryRow("SELECT id, app_id, app_name, container_ids, config, installed_at FROM installed_apps WHERE id = ?", id).
-		Scan(&app.ID, &app.AppID, &app.AppName, &app.ContainerIDs, &app.Config, &app.InstalledAt)
+	err := s.db.QueryRow("SELECT id, app_id, app_name, container_ids, config, status, installed_at FROM installed_apps WHERE id = ?", id).
+		Scan(&app.ID, &app.AppID, &app.AppName, &app.ContainerIDs, &app.Config, &app.Status, &app.InstalledAt)
 	if err != nil {
 		return nil, err
 	}

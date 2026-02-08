@@ -189,7 +189,7 @@
       <div v-else class="installed-list">
         <div v-for="app in installedApps" :key="app.id" class="installed-item">
           <div class="installed-info">
-            <h4>{{ app.name }}</h4>
+            <h4>{{ app.appName }}</h4>
             <p class="text-secondary">Installed {{ formatDate(app.installedAt) }}</p>
             <span :class="['status-badge', app.status === 'running' ? 'status-online' : 'status-offline']">
               {{ app.status }}
@@ -206,7 +206,7 @@
 
     <!-- Uninstall Confirmation Modal -->
     <Modal v-model="showUninstallModal" title="CONFIRM UNINSTALL">
-      <p>Are you sure you want to uninstall <strong>{{ appToUninstall?.name }}</strong>?</p>
+      <p>Are you sure you want to uninstall <strong>{{ appToUninstall?.appName }}</strong>?</p>
       <p class="text-secondary mt-sm">This will remove the container and its data.</p>
 
       <template #footer>
@@ -370,7 +370,7 @@ async function handleUninstall() {
   uninstalling.value = true
   try {
     await appsStore.uninstallApp(appToUninstall.value.id)
-    showToast(`Successfully uninstalled ${appToUninstall.value.name}`, 'success')
+    showToast(`Successfully uninstalled ${appToUninstall.value.appName}`, 'success')
     showUninstallModal.value = false
     await loadCatalog()
   } catch (err) {

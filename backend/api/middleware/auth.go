@@ -15,21 +15,25 @@ const UserIDKey contextKey = "userID"
 func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var tokenString string
+
 			// Get token from Authorization header
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
+			if authHeader != "" {
+				// Extract token (Bearer <token>)
+				parts := strings.Split(authHeader, " ")
+				if len(parts) != 2 || parts[0] != "Bearer" {
+					http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
+					return
+				}
+				tokenString = parts[1]
+			} else if t := r.URL.Query().Get("token"); t != "" {
+				// Fallback to query parameter (needed for WebSocket connections)
+				tokenString = t
+			} else {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-
-			// Extract token (Bearer <token>)
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
-				return
-			}
-
-			tokenString := parts[1]
 
 			// Parse and validate token
 			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
