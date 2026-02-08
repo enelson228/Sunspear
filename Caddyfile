@@ -6,10 +6,26 @@ www.{$PUBLIC_DOMAIN} {
   encode zstd gzip
 
   @health path /health
-  reverse_proxy @health http://backend:8080
+  handle @health {
+    reverse_proxy http://backend:8080
+  }
+
+  @kuma path /kuma /kuma/*
+  handle @kuma {
+    uri strip_prefix /kuma
+    reverse_proxy http://uptime-kuma:3001 {
+      header_up X-Forwarded-Prefix /kuma
+      header_down Location ^/(.*)$ /kuma/$1
+      header_down Set-Cookie (.*)Path=/;?(.*) $1Path=/kuma;$2
+    }
+  }
 
   @api path /api/*
-  reverse_proxy @api http://backend:8080
+  handle @api {
+    reverse_proxy http://backend:8080
+  }
 
-  reverse_proxy http://frontend:80
+  handle {
+    reverse_proxy http://frontend:80
+  }
 }
