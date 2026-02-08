@@ -10,6 +10,7 @@ export function useWebSocket(path) {
     let reconnectTimeout = null
     let reconnectDelay = 1000
     const maxReconnectDelay = 30000
+    let manualClose = false
 
     function connect() {
         const authStore = useAuthStore()
@@ -22,14 +23,16 @@ export function useWebSocket(path) {
 
         // Construct WebSocket URL from API base URL
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
-        const wsUrl = apiBaseUrl
+        const wsBaseUrl = apiBaseUrl
             .replace(/^http:/, 'ws:')
             .replace(/^https:/, 'wss:')
-            .replace(/\/api$/, '') // Remove /api suffix if present
+            .replace(/\/$/, '')
 
-        const fullUrl = `${wsUrl}${path}?token=${encodeURIComponent(token)}`
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`
+        const fullUrl = `${wsBaseUrl}${normalizedPath}?token=${encodeURIComponent(token)}`
 
         try {
+            manualClose = false
             ws = new WebSocket(fullUrl)
 
             ws.onopen = () => {
@@ -56,10 +59,12 @@ export function useWebSocket(path) {
                 connected.value = false
 
                 // Auto-reconnect with exponential backoff
-                reconnectTimeout = setTimeout(() => {
-                    reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
-                    connect()
-                }, reconnectDelay)
+                if (!manualClose) {
+                    reconnectTimeout = setTimeout(() => {
+                        reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
+                        connect()
+                    }, reconnectDelay)
+                }
             }
         } catch (err) {
             error.value = err.message
@@ -68,6 +73,7 @@ export function useWebSocket(path) {
     }
 
     function disconnect() {
+        manualClose = true
         if (reconnectTimeout) {
             clearTimeout(reconnectTimeout)
             reconnectTimeout = null

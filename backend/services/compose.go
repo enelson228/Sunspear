@@ -129,7 +129,11 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 
 		// Parse configuration
 		env := s.parseEnvironment(serviceSpec.Environment)
-		exposedPorts, portBindings := s.parsePorts(serviceSpec.Ports)
+		exposedPorts, portBindings, err := s.parsePorts(serviceSpec.Ports)
+		if err != nil {
+			s.rollback(ctx, containerIDs, networkIDs)
+			return nil, fmt.Errorf("invalid port definition for %s: %w", serviceName, err)
+		}
 		volumes := s.parseVolumes(serviceSpec.Volumes, name)
 		labels := s.parseLabels(serviceSpec.Labels)
 		command := s.parseCommand(serviceSpec.Command)
@@ -177,7 +181,7 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 		containerIDs = append(containerIDs, resp.ID)
 
 		// Connect to network
-		if err := s.dockerService.ConnectNetwork(ctx, networkResp.ID, resp.ID); err != nil {
+		if err := s.dockerService.ConnectNetworkWithAliases(ctx, networkResp.ID, resp.ID, []string{serviceName}); err != nil {
 			s.rollback(ctx, containerIDs, networkIDs)
 			return nil, fmt.Errorf("failed to connect %s to network: %w", serviceName, err)
 		}
@@ -429,39 +433,17 @@ func (s *ComposeService) parseEnvironment(env interface{}) []string {
 }
 
 // parsePorts converts port definitions to Docker format
-func (s *ComposeService) parsePorts(ports []string) (nat.PortSet, nat.PortMap) {
+func (s *ComposeService) parsePorts(ports []string) (nat.PortSet, nat.PortMap, error) {
 	if len(ports) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	exposedPorts := make(nat.PortSet)
-	portBindings := make(nat.PortMap)
-
-	for _, portDef := range ports {
-		parts := strings.Split(portDef, ":")
-		var containerPort, hostPort string
-
-		if len(parts) == 2 {
-			hostPort = parts[0]
-			containerPort = parts[1]
-		} else {
-			containerPort = parts[0]
-			hostPort = parts[0]
-		}
-
-		// Add /tcp if not specified
-		if !strings.Contains(containerPort, "/") {
-			containerPort = containerPort + "/tcp"
-		}
-
-		port := nat.Port(containerPort)
-		exposedPorts[port] = struct{}{}
-		portBindings[port] = []nat.PortBinding{
-			{HostPort: hostPort},
-		}
+	exposedPorts, portBindings, err := nat.ParsePortSpecs(ports)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return exposedPorts, portBindings
+	return exposedPorts, portBindings, nil
 }
 
 // parseVolumes converts volume definitions to Docker format

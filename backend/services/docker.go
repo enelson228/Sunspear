@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
@@ -211,7 +212,15 @@ func (s *DockerService) RemoveNetwork(ctx context.Context, id string) error {
 }
 
 func (s *DockerService) ConnectNetwork(ctx context.Context, networkID string, containerID string) error {
-	return s.client.NetworkConnect(ctx, networkID, containerID, nil)
+	return s.ConnectNetworkWithAliases(ctx, networkID, containerID, nil)
+}
+
+func (s *DockerService) ConnectNetworkWithAliases(ctx context.Context, networkID string, containerID string, aliases []string) error {
+	var endpoint *network.EndpointSettings
+	if len(aliases) > 0 {
+		endpoint = &network.EndpointSettings{Aliases: aliases}
+	}
+	return s.client.NetworkConnect(ctx, networkID, containerID, endpoint)
 }
 
 func (s *DockerService) DisconnectNetwork(ctx context.Context, networkID string, containerID string) error {

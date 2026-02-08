@@ -88,15 +88,18 @@ const containersStore = useContainersStore()
 const { data: wsData, connected: wsConnected, connect: wsConnect, disconnect: wsDisconnect } = useWebSocket('/ws/metrics')
 
 const cpuUsage = computed(() => {
-  return systemStore.metrics?.cpu.usagePercent.toFixed(1) + '%' || '--'
+  const usage = systemStore.metrics?.cpu?.usagePercent
+  return typeof usage === 'number' ? `${usage.toFixed(1)}%` : '--'
 })
 
 const memoryUsage = computed(() => {
-  return systemStore.metrics?.memory.usedPercent.toFixed(1) + '%' || '--'
+  const usage = systemStore.metrics?.memory?.usedPercent
+  return typeof usage === 'number' ? `${usage.toFixed(1)}%` : '--'
 })
 
 const diskUsage = computed(() => {
-  return systemStore.metrics?.disk.usedPercent.toFixed(1) + '%' || '--'
+  const usage = systemStore.metrics?.disk?.usedPercent
+  return typeof usage === 'number' ? `${usage.toFixed(1)}%` : '--'
 })
 
 const containerCount = computed(() => {

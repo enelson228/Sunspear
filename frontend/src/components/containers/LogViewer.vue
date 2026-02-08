@@ -86,7 +86,7 @@ function stopStreaming() {
 // Watch for incoming log messages
 watch(wsData, (data) => {
   if (data && data.type === 'log' && streaming.value) {
-    streamedLogs.value += data.data + '\n'
+    streamedLogs.value += data.data
     scrollToBottom()
   }
 })

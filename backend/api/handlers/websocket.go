@@ -2,17 +2,18 @@ package handlers
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sunspear/services"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type WSHandler struct {
@@ -77,13 +78,14 @@ func (h *WSHandler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 		select {
 		case event := <-events:
 			msg := map[string]interface{}{
-				"type":   "container_event",
-				"action": event.Action,
-				"actor": map[string]interface{}{
-					"id":         event.Actor.ID,
-					"attributes": event.Actor.Attributes,
+				"type": "container",
+				"data": map[string]interface{}{
+					"action":       event.Action,
+					"containerId":  event.Actor.ID,
+					"containerName": event.Actor.Attributes["name"],
+					"attributes":   event.Actor.Attributes,
+					"time":         event.Time,
 				},
-				"time": event.Time,
 			}
 			data, _ := json.Marshal(msg)
 			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
@@ -136,39 +138,53 @@ func (h *WSHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	defer reader.Close()
 
-	buf := make([]byte, 4096)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			n, err := reader.Read(buf)
-			if n > 0 {
-				// Docker log stream has 8-byte header per frame, strip it
-				content := buf[:n]
-				if n >= 8 {
-					// Parse Docker multiplexing header: 1 byte stream type, 3 padding, 4 byte big-endian size
-					frameSize := int(binary.BigEndian.Uint32(content[4:8]))
-					if frameSize > 0 && 8+frameSize <= n {
-						content = content[8 : 8+frameSize]
-					} else if n > 8 {
-						content = content[8:]
+	containerInfo, err := h.dockerService.GetContainer(ctx, containerID)
+	if err != nil {
+		errMsg, _ := json.Marshal(map[string]string{"type": "error", "message": err.Error()})
+		conn.WriteMessage(websocket.TextMessage, errMsg)
+		return
+	}
+
+	go func() {
+		<-ctx.Done()
+		reader.Close()
+	}()
+
+	sendLogChunk := func(content []byte) error {
+		if len(content) == 0 {
+			return nil
+		}
+		msg := map[string]interface{}{
+			"type": "log",
+			"data": string(content),
+		}
+		data, _ := json.Marshal(msg)
+		return conn.WriteMessage(websocket.TextMessage, data)
+	}
+
+	if containerInfo.Config != nil && containerInfo.Config.Tty {
+		buf := make([]byte, 4096)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				n, err := reader.Read(buf)
+				if n > 0 {
+					if writeErr := sendLogChunk(buf[:n]); writeErr != nil {
+						return
 					}
 				}
-				msg := map[string]interface{}{
-					"type": "log",
-					"data": string(content),
-				}
-				data, _ := json.Marshal(msg)
-				if writeErr := conn.WriteMessage(websocket.TextMessage, data); writeErr != nil {
+				if err != nil {
 					return
 				}
 			}
-			if err != nil {
-				return
-			}
 		}
 	}
+
+	var mu sync.Mutex
+	writer := &wsLogWriter{conn: conn, mu: &mu}
+	_, _ = stdcopy.StdCopy(writer, writer, reader)
 }
 
 // StreamMetrics pushes system metrics over WebSocket every 3 seconds
@@ -200,7 +216,7 @@ func (h *WSHandler) StreamMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics := h.monitorService.GetMetrics()
 	msg := map[string]interface{}{
 		"type":    "metrics",
-		"metrics": metrics,
+		"data":    metrics,
 	}
 	data, _ := json.Marshal(msg)
 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
@@ -213,7 +229,7 @@ func (h *WSHandler) StreamMetrics(w http.ResponseWriter, r *http.Request) {
 			metrics := h.monitorService.GetMetrics()
 			msg := map[string]interface{}{
 				"type":    "metrics",
-				"metrics": metrics,
+				"data":    metrics,
 			}
 			data, _ := json.Marshal(msg)
 			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
@@ -223,4 +239,26 @@ func (h *WSHandler) StreamMetrics(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+type wsLogWriter struct {
+	conn *websocket.Conn
+	mu   *sync.Mutex
+}
+
+func (w *wsLogWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	msg := map[string]interface{}{
+		"type": "log",
+		"data": string(p),
+	}
+	data, _ := json.Marshal(msg)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if err := w.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

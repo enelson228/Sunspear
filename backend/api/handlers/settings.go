@@ -214,6 +214,10 @@ func (h *SettingsHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 
 	// Get requesting user's ID from context
 	requestingID := r.Context().Value(middleware.UserIDKey).(int)
+	if requestingID != targetID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 
 	var req struct {
 		CurrentPassword string `json:"current_password"`
