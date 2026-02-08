@@ -1,0 +1,187 @@
+{
+  "apps": [
+    {
+      "id": "uptime-kuma",
+      "name": "Uptime Kuma",
+      "description": "Self-hosted monitoring tool",
+      "icon": "📊",
+      "category": "monitoring",
+      "version": "1",
+      "image": "louislam/uptime-kuma:1",
+      "ports": {"web": 3001},
+      "volumes": [
+        {"container": "/app/data", "host": "./uptime-kuma-data"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": []
+      },
+      "composeFile": "uptime-kuma.yml"
+    },
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "description": "Free media server",
+      "icon": "🎬",
+      "category": "media",
+      "version": "latest",
+      "image": "jellyfin/jellyfin:latest",
+      "ports": {"web": 8096},
+      "volumes": [
+        {"container": "/config", "host": "./jellyfin-config"},
+        {"container": "/media", "host": "./jellyfin-media"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": [
+          {"name": "TZ", "description": "Timezone", "default": "America/New_York"}
+        ]
+      },
+      "composeFile": "jellyfin.yml"
+    },
+    {
+      "id": "vaultwarden",
+      "name": "Vaultwarden",
+      "description": "Self-hosted password manager",
+      "icon": "🔐",
+      "category": "security",
+      "version": "latest",
+      "image": "vaultwarden/server:latest",
+      "ports": {"web": 80},
+      "volumes": [
+        {"container": "/data", "host": "./vaultwarden-data"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": [
+          {"name": "ADMIN_TOKEN", "description": "Admin panel token"}
+        ]
+      },
+      "composeFile": "vaultwarden.yml"
+    },
+    {
+      "id": "portainer",
+      "name": "Portainer",
+      "description": "Container management platform",
+      "icon": "🐳",
+      "category": "tools",
+      "version": "latest",
+      "image": "portainer/portainer-ce:latest",
+      "ports": {"web": 9000},
+      "volumes": [
+        {"container": "/data", "host": "portainer-data"},
+        {"container": "/var/run/docker.sock", "host": "/var/run/docker.sock"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": []
+      },
+      "composeFile": "portainer.yml"
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud",
+      "description": "Self-hosted cloud storage and collaboration platform",
+      "icon": "☁️",
+      "category": "productivity",
+      "version": "latest",
+      "image": "nextcloud:latest",
+      "ports": {"web": 80},
+      "volumes": [
+        {"container": "/var/www/html", "host": "./nextcloud-data"}
+      ],
+      "envVars": {
+        "required": [
+          {"name": "NEXTCLOUD_ADMIN_USER", "description": "Admin username"},
+          {"name": "NEXTCLOUD_ADMIN_PASSWORD", "description": "Admin password"}
+        ],
+        "optional": []
+      },
+      "composeFile": "nextcloud.yml"
+    },
+    {
+      "id": "gitea",
+      "name": "Gitea",
+      "description": "Lightweight self-hosted Git service",
+      "icon": "🌿",
+      "category": "development",
+      "version": "latest",
+      "image": "gitea/gitea:latest",
+      "ports": {"web": 3000, "ssh": 22},
+      "volumes": [
+        {"container": "/data", "host": "./gitea-data"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": [
+          {"name": "USER_UID", "description": "UID for Gitea user", "default": "1000"},
+          {"name": "USER_GID", "description": "GID for Gitea user", "default": "1000"}
+        ]
+      },
+      "composeFile": "gitea.yml"
+    },
+    {
+      "id": "pihole",
+      "name": "Pi-hole",
+      "description": "Network-wide ad blocking DNS server",
+      "icon": "🛡️",
+      "category": "networking",
+      "version": "latest",
+      "image": "pihole/pihole:latest",
+      "ports": {"web": 80, "dns": 53},
+      "volumes": [
+        {"container": "/etc/pihole", "host": "./pihole-config"},
+        {"container": "/etc/dnsmasq.d", "host": "./pihole-dnsmasq"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": [
+          {"name": "WEBPASSWORD", "description": "Web interface password"}
+        ]
+      },
+      "composeFile": "pihole.yml"
+    },
+    {
+      "id": "heimdall",
+      "name": "Heimdall",
+      "description": "Application dashboard and launcher",
+      "icon": "🏠",
+      "category": "tools",
+      "version": "latest",
+      "image": "linuxserver/heimdall:latest",
+      "ports": {"web": 80},
+      "volumes": [
+        {"container": "/config", "host": "./heimdall-config"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": [
+          {"name": "PUID", "description": "User ID", "default": "1000"},
+          {"name": "PGID", "description": "Group ID", "default": "1000"},
+          {"name": "TZ", "description": "Timezone", "default": "America/New_York"}
+        ]
+      },
+      "composeFile": "heimdall.yml"
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "description": "Analytics and monitoring dashboard",
+      "icon": "📈",
+      "category": "monitoring",
+      "version": "latest",
+      "image": "grafana/grafana:latest",
+      "ports": {"web": 3000},
+      "volumes": [
+        {"container": "/var/lib/grafana", "host": "grafana-data"}
+      ],
+      "envVars": {
+        "required": [],
+        "optional": [
+          {"name": "GF_SECURITY_ADMIN_PASSWORD", "description": "Admin password", "default": "admin"}
+        ]
+      },
+      "composeFile": "grafana.yml"
+    }
+  ]
+}
