@@ -43,7 +43,7 @@ func NewRouter(
 	settingsHandler := handlers.NewSettingsHandler(cfg, db)
 
 	// Public routes
-	r.HandleFunc("/health", healthCheck).Methods("GET")
+	r.HandleFunc("/health", healthCheck).Methods("GET", "HEAD")
 	r.HandleFunc("/api/auth/login", middleware.RateLimitMiddleware(authHandler.Login)).Methods("POST")
 	r.HandleFunc("/api/auth/setup", middleware.RateLimitMiddleware(authHandler.Setup)).Methods("POST")
 	r.HandleFunc("/api/auth/setup/status", authHandler.SetupStatus).Methods("GET")
