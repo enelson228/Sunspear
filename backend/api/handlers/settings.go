@@ -121,6 +121,15 @@ func (h *SettingsHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validateUsername(req.Username); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validatePassword(req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// Hash password
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -226,6 +235,11 @@ func (h *SettingsHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.CurrentPassword)); err != nil {
 		http.Error(w, "Current password is incorrect", http.StatusUnauthorized)
+		return
+	}
+
+	if err := validatePassword(req.NewPassword); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

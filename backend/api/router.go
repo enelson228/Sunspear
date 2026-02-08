@@ -22,6 +22,13 @@ func NewRouter(
 	composeService *services.ComposeService,
 ) http.Handler {
 	r := mux.NewRouter()
+	r.Use(middleware.SecurityHeaders)
+
+	// Parse allowed origins for CORS and WebSocket
+	allowedOrigins := strings.Split(cfg.FrontendURL, ",")
+	for i := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+	}
 
 	// Initialize handlers
 	containerHandler := handlers.NewContainerHandler(dockerService)
@@ -29,7 +36,7 @@ func NewRouter(
 	systemHandler := handlers.NewSystemHandler(dockerService, monitorService)
 	appHandler := handlers.NewAppHandler(marketplaceService, dockerService)
 	authHandler := handlers.NewAuthHandler(cfg, db)
-	wsHandler := handlers.NewWSHandler(dockerService, monitorService)
+	wsHandler := handlers.NewWSHandler(dockerService, monitorService, allowedOrigins)
 	volumeHandler := handlers.NewVolumeHandler(dockerService)
 	networkHandler := handlers.NewNetworkHandler(dockerService)
 	composeHandler := handlers.NewComposeHandler(composeService)
@@ -37,8 +44,8 @@ func NewRouter(
 
 	// Public routes
 	r.HandleFunc("/health", healthCheck).Methods("GET")
-	r.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST")
-	r.HandleFunc("/api/auth/setup", authHandler.Setup).Methods("POST")
+	r.HandleFunc("/api/auth/login", middleware.RateLimitMiddleware(authHandler.Login)).Methods("POST")
+	r.HandleFunc("/api/auth/setup", middleware.RateLimitMiddleware(authHandler.Setup)).Methods("POST")
 	r.HandleFunc("/api/auth/setup/status", authHandler.SetupStatus).Methods("GET")
 
 	// Protected routes
@@ -130,11 +137,7 @@ func NewRouter(
 	api.HandleFunc("/users/{id}", settingsHandler.DeleteUser).Methods("DELETE")
 	api.HandleFunc("/users/{id}/password", settingsHandler.ChangePassword).Methods("PUT")
 
-	// CORS configuration — support comma-separated origins
-	allowedOrigins := strings.Split(cfg.FrontendURL, ",")
-	for i := range allowedOrigins {
-		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
-	}
+	// CORS configuration
 	c := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

@@ -10,8 +10,8 @@
 
   /* Text Colors */
   --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-secondary: #a8b5c8;
+  --text-muted: #8494a7;
 
   /* Status Colors */
   --status-online: var(--reach-cyan);

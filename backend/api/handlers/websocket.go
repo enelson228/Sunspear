@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"sunspear/services"
 	"time"
 
@@ -13,29 +15,43 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // CORS handled by middleware
-	},
-}
-
 type WSHandler struct {
 	dockerService  *services.DockerService
 	monitorService *services.MonitoringService
+	upgrader       websocket.Upgrader
 }
 
-func NewWSHandler(dockerService *services.DockerService, monitorService *services.MonitoringService) *WSHandler {
+func NewWSHandler(dockerService *services.DockerService, monitorService *services.MonitoringService, allowedOrigins []string) *WSHandler {
 	return &WSHandler{
 		dockerService:  dockerService,
 		monitorService: monitorService,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				origin := r.Header.Get("Origin")
+				if origin == "" {
+					return true // Allow non-browser clients
+				}
+				parsed, err := url.Parse(origin)
+				if err != nil {
+					return false
+				}
+				originHost := strings.ToLower(parsed.Scheme + "://" + parsed.Host)
+				for _, allowed := range allowedOrigins {
+					if strings.ToLower(strings.TrimSpace(allowed)) == originHost {
+						return true
+					}
+				}
+				return false
+			},
+		},
 	}
 }
 
 // StreamEvents streams Docker container events over WebSocket
 func (h *WSHandler) StreamEvents(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return
@@ -91,7 +107,7 @@ func (h *WSHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	containerID := vars["id"]
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return
@@ -157,7 +173,7 @@ func (h *WSHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 
 // StreamMetrics pushes system metrics over WebSocket every 3 seconds
 func (h *WSHandler) StreamMetrics(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return

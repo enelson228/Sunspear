@@ -48,7 +48,7 @@ type NetworkMetrics struct {
 type MonitoringService struct {
 	metrics     SystemMetrics
 	mutex       sync.RWMutex
-	stopChan    chan bool
+	stopChan    chan struct{}
 	interval    time.Duration
 	lastNetStat net.IOCountersStat
 }
@@ -56,7 +56,7 @@ type MonitoringService struct {
 func NewMonitoringService() *MonitoringService {
 	return &MonitoringService{
 		interval: 5 * time.Second,
-		stopChan: make(chan bool),
+		stopChan: make(chan struct{}),
 	}
 }
 
@@ -65,7 +65,7 @@ func (s *MonitoringService) Start() {
 }
 
 func (s *MonitoringService) Stop() {
-	s.stopChan <- true
+	close(s.stopChan)
 }
 
 func (s *MonitoringService) GetMetrics() SystemMetrics {

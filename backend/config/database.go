@@ -16,11 +16,15 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Open database connection
-	db, err := sql.Open("sqlite3", dbPath)
+	// Open database connection with WAL mode for better concurrent read performance
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(1) // SQLite only supports one writer
+	db.SetMaxIdleConns(1)
 
 	// Test connection
 	if err := db.Ping(); err != nil {
@@ -72,6 +76,10 @@ func createTables(db *sql.DB) error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE INDEX IF NOT EXISTS idx_installed_apps_app_id ON installed_apps(app_id);
+	CREATE INDEX IF NOT EXISTS idx_installed_apps_status ON installed_apps(status);
+	CREATE INDEX IF NOT EXISTS idx_compose_projects_status ON compose_projects(status);
 	`
 
 	_, err := db.Exec(schema)
