@@ -156,6 +156,11 @@ func (s *DockerService) GetEvents(ctx context.Context) (<-chan events.Message, <
 	return s.client.Events(ctx, types.EventsOptions{
 		Filters: filters.NewArgs(
 			filters.Arg("type", "container"),
+			filters.Arg("event", "start"),
+			filters.Arg("event", "stop"),
+			filters.Arg("event", "die"),
+			filters.Arg("event", "kill"),
+			filters.Arg("event", "restart"),
 		),
 	})
 }
