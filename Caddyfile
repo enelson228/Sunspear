@@ -2,6 +2,10 @@ www.{$PUBLIC_DOMAIN} {
   redir https://{$PUBLIC_DOMAIN}{uri} permanent
 }
 
+ollama-ui.{$PUBLIC_DOMAIN} {
+  reverse_proxy http://open-webui:8080
+}
+
 {$PUBLIC_DOMAIN} {
   encode zstd gzip
 
