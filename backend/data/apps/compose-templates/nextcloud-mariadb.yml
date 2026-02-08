@@ -1,0 +1,37 @@
+version: "3.8"
+services:
+  nextcloud:
+    image: nextcloud:latest
+    ports:
+      - "8081:80"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: nextcloud
+      REDIS_HOST: redis
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: nextcloud
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+
+volumes:
+  nextcloud_data:
+  db_data:

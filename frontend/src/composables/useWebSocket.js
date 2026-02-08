@@ -22,7 +22,11 @@ export function useWebSocket(path) {
         }
 
         // Construct WebSocket URL from API base URL
-        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+        let apiBaseUrl = import.meta.env.VITE_API_URL || '/api'
+        if (apiBaseUrl.startsWith('/')) {
+            apiBaseUrl = `${window.location.origin}${apiBaseUrl}`
+        }
+
         const wsBaseUrl = apiBaseUrl
             .replace(/^http:/, 'ws:')
             .replace(/^https:/, 'wss:')
