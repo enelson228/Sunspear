@@ -250,7 +250,8 @@ const loadingTemplates = ref(false)
 const projectToDelete = ref(null)
 const projectDetails = ref(null)
 const validationResult = ref(null)
-const deployForm = ref({ name: '', description: '', yaml: '' })
+const defaultYaml = 'version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"'
+const deployForm = ref({ name: '', description: '', yaml: defaultYaml })
 const toast = ref({ show: false, message: '', type: 'success' })
 
 const projects = computed(() => composeStore.projects)
@@ -335,7 +336,7 @@ async function handleDeploy() {
 
 function closeDeployModal() {
   showDeployModal.value = false
-  deployForm.value = { name: '', description: '', yaml: '' }
+  deployForm.value = { name: '', description: '', yaml: defaultYaml }
   validationResult.value = null
 }
 

@@ -28,16 +28,22 @@
             <label class="label">FILTER</label>
             <div class="filter-buttons">
               <Button
-                :variant="showAll ? 'primary' : 'secondary'"
-                @click="showAll = true; fetchContainers(true)"
+                :variant="activeFilter === 'all' ? 'primary' : 'secondary'"
+                @click="activeFilter = 'all'"
               >
-                ALL ({{ containers.length }})
+                ALL ({{ totalCount }})
               </Button>
               <Button
-                :variant="!showAll ? 'primary' : 'secondary'"
-                @click="showAll = false; fetchContainers(false)"
+                :variant="activeFilter === 'running' ? 'primary' : 'secondary'"
+                @click="activeFilter = 'running'"
               >
                 RUNNING ({{ runningCount }})
+              </Button>
+              <Button
+                :variant="activeFilter === 'stopped' ? 'primary' : 'secondary'"
+                @click="activeFilter = 'stopped'"
+              >
+                STOPPED ({{ stoppedCount }})
               </Button>
             </div>
           </div>
@@ -227,7 +233,7 @@ import Modal from '@/components/ui/Modal.vue'
 const router = useRouter()
 const containersStore = useContainersStore()
 
-const showAll = ref(true)
+const activeFilter = ref('all')
 const searchQuery = ref('')
 const actionLoading = ref(null)
 const showRemoveModal = ref(false)
@@ -251,15 +257,23 @@ const containers = computed(() => containersStore.containers)
 const loading = computed(() => containersStore.loading)
 const error = computed(() => containersStore.error)
 
+const totalCount = computed(() => containers.value.length)
+
 const runningCount = computed(() => {
   return containers.value.filter(c => c.State === 'running').length
+})
+
+const stoppedCount = computed(() => {
+  return containers.value.filter(c => c.State !== 'running').length
 })
 
 const filteredContainers = computed(() => {
   let filtered = containers.value
 
-  if (!showAll.value) {
+  if (activeFilter.value === 'running') {
     filtered = filtered.filter(c => c.State === 'running')
+  } else if (activeFilter.value === 'stopped') {
+    filtered = filtered.filter(c => c.State !== 'running')
   }
 
   if (searchQuery.value) {
@@ -275,9 +289,9 @@ const filteredContainers = computed(() => {
   return filtered
 })
 
-async function fetchContainers(all = true) {
+async function fetchContainers() {
   try {
-    await containersStore.fetchContainers(all)
+    await containersStore.fetchContainers(true)
   } catch (err) {
     showToast('Failed to fetch containers', 'error')
   }
