@@ -21,14 +21,15 @@ func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
 				// Extract token (Bearer <token>)
-				parts := strings.Split(authHeader, " ")
+				parts := strings.Fields(authHeader)
 				if len(parts) != 2 || parts[0] != "Bearer" {
 					http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
 					return
 				}
 				tokenString = parts[1]
-			} else if t := r.URL.Query().Get("token"); t != "" {
-				// Fallback to query parameter (needed for WebSocket connections)
+			} else if strings.HasPrefix(r.URL.Path, "/api/ws/") && r.URL.Query().Get("token") != "" {
+				// WebSocket handshake fallback only.
+				t := r.URL.Query().Get("token")
 				tokenString = t
 			} else {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)

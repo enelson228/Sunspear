@@ -110,7 +110,9 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 	// Resolve service order
 	serviceOrder, err := s.resolveServiceOrder(spec.Services)
 	if err != nil {
-		s.dockerService.RemoveNetwork(ctx, networkResp.ID)
+		if cleanupErr := s.dockerService.RemoveNetwork(ctx, networkResp.ID); cleanupErr != nil {
+			return nil, fmt.Errorf("failed to resolve service order: %v (cleanup failed: %v)", err, cleanupErr)
+		}
 		return nil, fmt.Errorf("failed to resolve service order: %w", err)
 	}
 
@@ -121,7 +123,10 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 		// Pull image
 		pullReader, err := s.dockerService.PullImage(ctx, serviceSpec.Image)
 		if err != nil {
-			s.rollback(ctx, containerIDs, networkIDs)
+			rollbackErr := s.rollback(ctx, containerIDs, networkIDs)
+			if rollbackErr != nil {
+				return nil, fmt.Errorf("failed to pull image %s: %v (rollback failed: %v)", serviceSpec.Image, err, rollbackErr)
+			}
 			return nil, fmt.Errorf("failed to pull image %s: %w", serviceSpec.Image, err)
 		}
 		io.Copy(io.Discard, pullReader)
@@ -131,7 +136,10 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 		env := s.parseEnvironment(serviceSpec.Environment)
 		exposedPorts, portBindings, err := s.parsePorts(serviceSpec.Ports)
 		if err != nil {
-			s.rollback(ctx, containerIDs, networkIDs)
+			rollbackErr := s.rollback(ctx, containerIDs, networkIDs)
+			if rollbackErr != nil {
+				return nil, fmt.Errorf("invalid port definition for %s: %v (rollback failed: %v)", serviceName, err, rollbackErr)
+			}
 			return nil, fmt.Errorf("invalid port definition for %s: %w", serviceName, err)
 		}
 		volumes := s.parseVolumes(serviceSpec.Volumes, name)
@@ -174,7 +182,10 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 		containerName := name + "-" + serviceName
 		resp, err := s.dockerService.CreateContainer(ctx, config, hostConfig, containerName)
 		if err != nil {
-			s.rollback(ctx, containerIDs, networkIDs)
+			rollbackErr := s.rollback(ctx, containerIDs, networkIDs)
+			if rollbackErr != nil {
+				return nil, fmt.Errorf("failed to create container %s: %v (rollback failed: %v)", serviceName, err, rollbackErr)
+			}
 			return nil, fmt.Errorf("failed to create container %s: %w", serviceName, err)
 		}
 
@@ -182,13 +193,19 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 
 		// Connect to network
 		if err := s.dockerService.ConnectNetworkWithAliases(ctx, networkResp.ID, resp.ID, []string{serviceName}); err != nil {
-			s.rollback(ctx, containerIDs, networkIDs)
+			rollbackErr := s.rollback(ctx, containerIDs, networkIDs)
+			if rollbackErr != nil {
+				return nil, fmt.Errorf("failed to connect %s to network: %v (rollback failed: %v)", serviceName, err, rollbackErr)
+			}
 			return nil, fmt.Errorf("failed to connect %s to network: %w", serviceName, err)
 		}
 
 		// Start container
 		if err := s.dockerService.StartContainer(ctx, resp.ID); err != nil {
-			s.rollback(ctx, containerIDs, networkIDs)
+			rollbackErr := s.rollback(ctx, containerIDs, networkIDs)
+			if rollbackErr != nil {
+				return nil, fmt.Errorf("failed to start container %s: %v (rollback failed: %v)", serviceName, err, rollbackErr)
+			}
 			return nil, fmt.Errorf("failed to start container %s: %w", serviceName, err)
 		}
 
@@ -211,7 +228,10 @@ func (s *ComposeService) Deploy(ctx context.Context, name, description, yamlCont
 	`, name, description, yamlContent, string(containerIDsJSON), string(networkIDsJSON), string(volumeNamesJSON))
 
 	if err != nil {
-		s.rollback(ctx, containerIDs, networkIDs)
+		rollbackErr := s.rollback(ctx, containerIDs, networkIDs)
+		if rollbackErr != nil {
+			return nil, fmt.Errorf("failed to save project: %v (rollback failed: %v)", err, rollbackErr)
+		}
 		return nil, fmt.Errorf("failed to save project: %w", err)
 	}
 
@@ -232,8 +252,15 @@ func (s *ComposeService) StopProject(ctx context.Context, id int) error {
 		return fmt.Errorf("failed to parse container IDs: %w", err)
 	}
 
+	var errs []error
 	for _, containerID := range containerIDs {
-		s.dockerService.StopContainer(ctx, containerID, 10)
+		if err := s.dockerService.StopContainer(ctx, containerID, 10); err != nil {
+			errs = append(errs, fmt.Errorf("stop container %s: %w", containerID, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return aggregateErrors("stop project", errs)
 	}
 
 	_, err = s.db.Exec("UPDATE compose_projects SET status = 'stopped', updated_at = CURRENT_TIMESTAMP WHERE id = ?", id)
@@ -281,18 +308,34 @@ func (s *ComposeService) DeleteProject(ctx context.Context, id int) error {
 	// Parse IDs
 	var containerIDs []string
 	var networkIDs []string
-	json.Unmarshal([]byte(project.ContainerIDs), &containerIDs)
-	json.Unmarshal([]byte(project.NetworkIDs), &networkIDs)
+	if err := json.Unmarshal([]byte(project.ContainerIDs), &containerIDs); err != nil {
+		return fmt.Errorf("failed to parse project container IDs: %w", err)
+	}
+	if err := json.Unmarshal([]byte(project.NetworkIDs), &networkIDs); err != nil {
+		return fmt.Errorf("failed to parse project network IDs: %w", err)
+	}
+
+	var errs []error
 
 	// Stop and remove containers
 	for _, containerID := range containerIDs {
-		s.dockerService.StopContainer(ctx, containerID, 10)
-		s.dockerService.RemoveContainer(ctx, containerID, true)
+		if err := s.dockerService.StopContainer(ctx, containerID, 10); err != nil {
+			errs = append(errs, fmt.Errorf("stop container %s: %w", containerID, err))
+		}
+		if err := s.dockerService.RemoveContainer(ctx, containerID, true); err != nil {
+			errs = append(errs, fmt.Errorf("remove container %s: %w", containerID, err))
+		}
 	}
 
 	// Remove networks
 	for _, networkID := range networkIDs {
-		s.dockerService.RemoveNetwork(ctx, networkID)
+		if err := s.dockerService.RemoveNetwork(ctx, networkID); err != nil {
+			errs = append(errs, fmt.Errorf("remove network %s: %w", networkID, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return aggregateErrors("delete project", errs)
 	}
 
 	// Remove from database
@@ -397,13 +440,43 @@ func (s *ComposeService) GetTemplate(name string) (*StackTemplate, error) {
 }
 
 // rollback removes created containers and networks on failure
-func (s *ComposeService) rollback(ctx context.Context, containerIDs []string, networkIDs []string) {
+func (s *ComposeService) rollback(ctx context.Context, containerIDs []string, networkIDs []string) error {
+	var errs []error
 	for _, containerID := range containerIDs {
-		s.dockerService.RemoveContainer(ctx, containerID, true)
+		if err := s.dockerService.RemoveContainer(ctx, containerID, true); err != nil {
+			errs = append(errs, fmt.Errorf("remove container %s: %w", containerID, err))
+		}
 	}
 	for _, networkID := range networkIDs {
-		s.dockerService.RemoveNetwork(ctx, networkID)
+		if err := s.dockerService.RemoveNetwork(ctx, networkID); err != nil {
+			errs = append(errs, fmt.Errorf("remove network %s: %w", networkID, err))
+		}
 	}
+
+	if len(errs) > 0 {
+		return aggregateErrors("rollback", errs)
+	}
+
+	return nil
+}
+
+func aggregateErrors(op string, errs []error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+
+	parts := make([]string, 0, len(errs))
+	for _, err := range errs {
+		if err != nil {
+			parts = append(parts, err.Error())
+		}
+	}
+
+	if len(parts) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%s encountered %d error(s): %s", op, len(parts), strings.Join(parts, "; "))
 }
 
 // parseEnvironment converts environment interface to string slice

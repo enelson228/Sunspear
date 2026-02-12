@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -68,18 +70,38 @@ func (rl *rateLimiter) allow(ip string) bool {
 	return true
 }
 
+var authLimiter = newRateLimiter(5, time.Minute)
+
+func getClientIP(r *http.Request) string {
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+		parts := strings.Split(forwarded, ",")
+		if len(parts) > 0 {
+			ip := strings.TrimSpace(parts[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		return realIP
+	}
+
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil && host != "" {
+		return host
+	}
+
+	return strings.TrimSpace(r.RemoteAddr)
+}
+
 // RateLimitMiddleware limits requests per IP within a time window.
 // 5 attempts per minute for auth endpoints.
 func RateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	limiter := newRateLimiter(5, time.Minute)
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
-		}
+		ip := getClientIP(r)
 
-		if !limiter.allow(ip) {
+		if !authLimiter.allow(ip) {
 			http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
 			return
 		}
