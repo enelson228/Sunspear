@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -77,6 +78,22 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 
 	if count > 0 {
 		http.Error(w, "Setup already completed", http.StatusBadRequest)
+		return
+	}
+
+	if h.cfg.SetupBootstrapToken == "" {
+		http.Error(w, "Setup is disabled until SETUP_BOOTSTRAP_TOKEN is configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	setupToken := r.Header.Get("X-Setup-Token")
+	if setupToken == "" {
+		http.Error(w, "Missing setup bootstrap token", http.StatusUnauthorized)
+		return
+	}
+
+	if subtle.ConstantTimeCompare([]byte(setupToken), []byte(h.cfg.SetupBootstrapToken)) != 1 {
+		http.Error(w, "Invalid setup bootstrap token", http.StatusUnauthorized)
 		return
 	}
 

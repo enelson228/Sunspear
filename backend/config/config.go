@@ -10,6 +10,7 @@ type Config struct {
 	JWTSecret         string
 	AdminPasswordHash string
 	FrontendURL       string
+	SetupBootstrapToken string
 }
 
 func Load() *Config {
@@ -18,6 +19,7 @@ func Load() *Config {
 		JWTSecret:         getEnv("JWT_SECRET", "change-me-in-production"),
 		AdminPasswordHash: getEnv("ADMIN_PASSWORD_HASH", ""),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
+		SetupBootstrapToken: getEnv("SETUP_BOOTSTRAP_TOKEN", ""),
 	}
 }
 

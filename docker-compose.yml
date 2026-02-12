@@ -9,6 +9,7 @@ services:
       - PUBLIC_DOMAIN=${PUBLIC_DOMAIN:-mjolnirarmory.com}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+      - SETUP_BOOTSTRAP_TOKEN=${SETUP_BOOTSTRAP_TOKEN}
       - PORT=8080
       - FRONTEND_URL=https://${PUBLIC_DOMAIN:-mjolnirarmory.com}
     restart: unless-stopped
@@ -47,6 +48,19 @@ services:
     depends_on:
       - frontend
       - backend
+    restart: unless-stopped
+    networks:
+      - sunspear-net
+
+  runpod-ollama-bridge:
+    build: ./runpod-ollama-bridge
+    container_name: runpod-ollama-bridge
+    environment:
+      - RUNPOD_OPENAI_BASE_URL=${RUNPOD_OPENAI_BASE_URL}
+      - RUNPOD_OPENAI_API_KEY=${RUNPOD_OPENAI_API_KEY}
+      - RUNPOD_BRIDGE_TOKEN=${RUNPOD_BRIDGE_TOKEN}
+      - OLLAMA_MODEL=${RUNPOD_OLLAMA_MODEL:-llama3.2:1b}
+      - PORT=8081
     restart: unless-stopped
     networks:
       - sunspear-net

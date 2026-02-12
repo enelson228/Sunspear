@@ -3,7 +3,6 @@ package middleware
 import (
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -73,26 +72,12 @@ func (rl *rateLimiter) allow(ip string) bool {
 var authLimiter = newRateLimiter(5, time.Minute)
 
 func getClientIP(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		if len(parts) > 0 {
-			ip := strings.TrimSpace(parts[0])
-			if ip != "" {
-				return ip
-			}
-		}
-	}
-
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
-	}
-
-	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
 		return host
 	}
 
-	return strings.TrimSpace(r.RemoteAddr)
+	return r.RemoteAddr
 }
 
 // RateLimitMiddleware limits requests per IP within a time window.
